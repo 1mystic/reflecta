@@ -96,7 +96,9 @@ async function startQuiz() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         goal: $("goal").value.trim() || "data science interview",
-        n_questions: parseInt($("nq").value, 10),
+        // defensive fallback: never send NaN (JSON.stringify silently turns it into
+        // null, which reads as a confusing "not a valid integer" 422 from the API)
+        n_questions: parseInt($("nq").value, 10) || 12,
         consent: $("consent").checked,
         learner_id: getLearnerId() || undefined,
       }),
@@ -379,21 +381,29 @@ $("delete-btn").addEventListener("click", async () => {
   } catch (e) { alert("Delete failed.\n\n" + e); }
 });
 
-// tell the learner up front which goals are guaranteed to work, and whether open
-// (Claude-generated) topics are enabled on this server — avoids the confusing case of
-// typing a topic that silently 503s because no ANTHROPIC_API_KEY is configured
-(async function initGoalHint() {
+// Reachability check + goal hint, both from one /api/ready call. If the request fails,
+// this page is very likely being served by something other than the FastAPI backend
+// (a separate dev server, or opened as a raw file) — surface a visible, actionable
+// banner instead of leaving it as a silent console 404/405 (see the API const comment
+// above for why same-origin is always correct for this app).
+(async function initReadyCheck() {
+  const banner = $("origin-banner");
   const hint = $("goal-hint");
-  if (!hint) return;
   try {
     const r = await fetch(`${API}/api/ready`);
     if (!r.ok) throw new Error();
     const d = await r.json();
-    const curated = (d.curated_goals || []).map((g) => `“${g}”`).join(", ");
-    hint.textContent = d.open_topics_enabled
-      ? `Any topic works — built-in: ${curated || "none"}. Anything else is generated on the fly.`
-      : `Open-topic generation is off on this server — built-in goals only for now: ${curated || "data science interview"}.`;
+    if (hint) {
+      const curated = (d.curated_goals || []).map((g) => `“${g}”`).join(", ");
+      hint.textContent = d.open_topics_enabled
+        ? `Any topic works — built-in: ${curated || "none"}. Anything else is generated on the fly.`
+        : `Open-topic generation is off on this server — built-in goals only for now: ${curated || "data science interview"}.`;
+    }
   } catch {
-    hint.textContent = "";
+    if (hint) hint.textContent = "";
+    if (banner) {
+      $("origin-here").textContent = location.origin || location.href;
+      banner.classList.remove("hidden");
+    }
   }
 })();

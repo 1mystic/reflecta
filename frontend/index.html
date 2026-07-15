@@ -8,6 +8,17 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- shown only if the API can't be reached from this page's origin — the frontend has
+       no independent life; it must be opened via the FastAPI server that serves it
+       (`uvicorn api.main:app` -> http://localhost:8000), never a separate dev server -->
+  <div id="origin-banner" class="origin-banner hidden">
+    ⚠️ Can't reach the Reflecta API from <code id="origin-here"></code>.
+    This page must be opened through the backend itself — run
+    <code>uvicorn api.main:app --reload</code> and open
+    <code>http://localhost:8000</code> directly (not a separate dev server or
+    double-clicked file).
+  </div>
+
   <!-- inline SVG icon sprite (simple line icons, stroke = currentColor) -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
@@ -134,7 +145,11 @@
                 <button type="button" class="seg-opt active" data-n="12">12</button>
                 <button type="button" class="seg-opt" data-n="18">18</button>
               </div>
-              <select id="nq" class="hidden"><option value="12" selected>12</option></select>
+              <select id="nq" class="hidden">
+                <option value="8">8</option>
+                <option value="12" selected>12</option>
+                <option value="18">18</option>
+              </select>
 
               <label class="consent">
                 <input id="consent" type="checkbox" />

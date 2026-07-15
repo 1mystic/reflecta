@@ -86,21 +86,38 @@ body {
 .hint-note { margin: 6px 0 0; font-size: 12.5px; }
 .center { display: block; margin: 4px auto 0; }
 
+/* ── on-page banner: shown when the API is unreachable from this origin ── */
+.origin-banner {
+  background: #fbeede; color: #7a4a1f; border-bottom: 1px solid #eccb96;
+  padding: 12px 24px; font-size: 13.5px; text-align: center; line-height: 1.5;
+}
+.origin-banner code {
+  background: rgba(0,0,0,0.06); padding: 1px 6px; border-radius: 5px; font-size: 12.5px;
+}
+
 /* ── true landing page (no sidebar) ── */
+/* full-width on large screens: sections use the available viewport, not a narrow
+   fixed column, while inner text (paragraphs, feature copy) keeps its own readable
+   max-width so a wide screen doesn't turn into a wall of unbroken text. */
 .landing { min-height: 100vh; display: flex; flex-direction: column; }
 .landing-top {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 22px 34px; max-width: 1000px; margin: 0 auto; width: 100%;
+  padding: 22px 4vw; max-width: 1600px; margin: 0 auto; width: 100%;
 }
 .landing-top .brand { padding: 0; }
 .landing-ghost { color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: none; }
 .landing-ghost:hover { color: var(--brown-deep); }
-.landing-main { flex: 1; max-width: 780px; margin: 0 auto; width: 100%; padding: 10px 24px 40px; }
+.landing-main { flex: 1; max-width: 1400px; margin: 0 auto; width: 100%; padding: 10px 4vw 40px; }
 .landing-foot {
   text-align: center; padding: 24px; color: var(--muted); font-size: 13px;
   border-top: 1px solid var(--line);
 }
 .landing-foot a { color: var(--brown-deep); text-decoration: none; }
+
+@media (min-width: 1100px) {
+  .landing .features { grid-template-columns: repeat(3, 1fr); }
+  .landing .how { padding: 32px 40px; }
+}
 
 /* hero (shared by landing) */
 .welcome-hero { text-align: center; padding: 44px 30px 40px; background: linear-gradient(180deg,#fffdf9,#fbf6ec); }
