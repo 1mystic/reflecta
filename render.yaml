@@ -17,7 +17,9 @@ services:
         sync: false        # set to your deployed frontend origin in the dashboard
       - key: REFLECTA_SESSION_RETENTION_DAYS
         value: "365"
+      - key: ANTHROPIC_API_KEY
+        sync: false        # optional: enables Claude-Haiku novel-topic question generation
     disk:
-      name: sessions
-      mountPath: /app/data/sessions
+      name: data
+      mountPath: /app/data
       sizeGB: 1
