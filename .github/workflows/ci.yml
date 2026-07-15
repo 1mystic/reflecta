@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Set up Python
+        run: uv venv --python 3.12
+      - name: Install (core + api + dev)
+        run: uv pip install -e ".[api,dev]"
+      - name: Run tests
+        run: uv run pytest -q
+      - name: API import + health smoke
+        run: |
+          uv run python -c "from fastapi.testclient import TestClient; from api.main import app; c=TestClient(app); assert c.get('/api/health').json()['status']=='ok'; assert c.get('/api/ready').status_code==200; print('smoke ok')"
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t reflecta-api:ci .

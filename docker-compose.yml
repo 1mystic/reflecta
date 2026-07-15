@@ -1,0 +1,21 @@
+# Local production-like stack: the API (serving frontend) + a persistent volume for
+# anonymous sessions. `docker compose up --build` then open http://localhost:8000
+services:
+  api:
+    build: .
+    image: reflecta-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      REFLECTA_ENV: prod
+      REFLECTA_LOG_JSON: "true"
+      REFLECTA_REQUIRE_CONSENT: "true"
+      REFLECTA_CORS_ORIGINS: "http://localhost:8000"
+      REFLECTA_SESSION_RETENTION_DAYS: "365"
+      REFLECTA_RATE_LIMIT_PER_MIN: "60"
+    volumes:
+      - sessions:/app/data/sessions
+    restart: unless-stopped
+
+volumes:
+  sessions:

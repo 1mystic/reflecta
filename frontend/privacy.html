@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reflecta — Privacy</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* standalone page: no sidebar, centered column */
+    .page { max-width: 680px; margin: 0 auto; padding: 26px 22px 60px; }
+    .p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .p-brand { display: flex; align-items: center; gap: 11px; font-weight: 800; font-size: 20px; }
+    .back {
+      display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700;
+      color: var(--brown-deep); background: var(--brown-soft); padding: 8px 16px;
+      border-radius: 999px; text-decoration: none;
+    }
+    .back:hover { filter: brightness(0.97); }
+    .p-card h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.02em; }
+    .p-card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--brown-deep); margin: 22px 0 8px; }
+    .p-card ul { margin: 0; padding-left: 20px; }
+    .p-card li { margin: 5px 0; font-size: 14.5px; }
+    .p-foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 22px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="p-head">
+      <span class="p-brand"><span class="brand-mark">◍</span> Reflecta</span>
+      <a class="back" href="/">← Back to app</a>
+    </div>
+
+    <div class="card p-card">
+      <h1>Privacy, in plain words</h1>
+      <p class="muted">A short, honest summary. Full notice: <code>PRIVACY.md</code> in the repository.</p>
+
+      <h2>What we store — only with your consent</h2>
+      <ul>
+        <li>The questions shown and the option you chose</li>
+        <li>Whether each answer was correct</li>
+        <li>Your confidence rating and response time</li>
+        <li>The reflection we generate for you</li>
+      </ul>
+
+      <h2>What we never collect</h2>
+      <ul>
+        <li>No name, email, phone, or account</li>
+        <li>No IP address stored with your session</li>
+        <li>Your session is an <b>opaque random id</b> — not linked to who you are</li>
+      </ul>
+
+      <h2>Your control</h2>
+      <ul>
+        <li>Data is used only to generate and improve your reflection</li>
+        <li>Sessions auto-delete after the retention window</li>
+        <li>You can delete a session anytime (right to erasure)</li>
+      </ul>
+
+      <p class="muted" style="margin-top:18px">Deploying to under-age learners? Parental consent and
+      stricter retention are required — see the full notice.</p>
+    </div>
+
+    <p class="p-foot">Reflecta · anonymous by design</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# --- data (keep the catalog + legacy CSVs, ignore large downloads) ---
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# --- experiment tracking / models ---
+wandb/
+mlruns/
+mlflow.db
+mlartifacts/
+*.ckpt
+*.pt
+models_store/
+
+# --- captured user sessions (real response data) ---
+data/sessions/
+# Claude-generated topic banks (cached per user topic)
+data/generated_banks/
+
+# --- secrets / env ---
+.env
+
+# --- os ---
+.DS_Store
+Thumbs.db

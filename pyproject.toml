@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reflecta"
+version = "0.1.0"
+description = "A reflective learning intelligence layer over quizzes (intent -> gap mapping)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "scikit-learn>=1.4",
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2.6", "gunicorn>=21.2"]
+tracking = ["wandb>=0.16", "mlflow>=2.11"]
+data = ["datasets>=2.18", "requests>=2.31", "tqdm>=4.66"]
+neural = ["torch>=2.2"]
+llm = ["anthropic>=0.40", "pydantic>=2.6"]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+reflecta-demo = "reflecta.demo:main"

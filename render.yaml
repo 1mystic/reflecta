@@ -1,0 +1,23 @@
+# One-click deploy to Render (free tier). Also works as a reference for Railway/Fly/HF Spaces.
+services:
+  - type: web
+    name: reflecta-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: REFLECTA_ENV
+        value: prod
+      - key: REFLECTA_LOG_JSON
+        value: "true"
+      - key: REFLECTA_REQUIRE_CONSENT
+        value: "true"
+      - key: REFLECTA_CORS_ORIGINS
+        sync: false        # set to your deployed frontend origin in the dashboard
+      - key: REFLECTA_SESSION_RETENTION_DAYS
+        value: "365"
+    disk:
+      name: sessions
+      mountPath: /app/data/sessions
+      sizeGB: 1
