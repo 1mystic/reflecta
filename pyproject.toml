@@ -22,7 +22,7 @@ tracking = ["wandb>=0.16", "mlflow>=2.11"]
 data = ["datasets>=2.18", "requests>=2.31", "tqdm>=4.66"]
 neural = ["torch>=2.2"]
 llm = ["anthropic>=0.40", "pydantic>=2.6"]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "httpx2>=0.1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
