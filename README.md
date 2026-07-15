@@ -165,22 +165,23 @@ docker compose up --build                                  # http://localhost:80
 
 ```
 reflecta/
-├── api/                 # FastAPI: routes, schemas, monitoring, reports
-├── src/reflecta/         # importable package — the actual ML/analysis core
-│   ├── data/             # loaders, question bank, group-aware splitting
-│   ├── features/         # behavior-signal extraction
-│   ├── models/            # IRT, online IRT, BKT, SAKT, intent→gap
-│   ├── reflection/        # rule-based reflection synthesis
-│   ├── tracking/          # MLflow / W&B wrapper
-│   ├── generation.py       # Claude-backed topic generation (structured outputs)
-│   ├── monitoring.py       # model health / drift for the Reports page
-│   └── serving.py          # the seam between trained artifacts and live requests
-├── scripts/              # download_data.py · run_pipeline.py · train_sakt.py
-├── frontend/             # static SPA (no build step)
-├── notebooks/            # research notebooks (knowledge tracing, EDA)
-├── docs/                 # architecture + research spine
-├── tests/                # pytest — models + API
-└── data/legacy_kaggle/   # the predecessor competition (see STORY.md)
+├── api/                   # FastAPI: routes, schemas, monitoring, reports
+├── src/reflecta/          # importable package — the actual ML/analysis core
+│   ├── data/               # loaders, question bank, group-aware splitting
+│   ├── features/            # behavior-signal extraction
+│   ├── models/               # IRT, online IRT, BKT, SAKT, intent→gap
+│   ├── reflection/            # rule-based reflection synthesis
+│   ├── tracking/               # MLflow / W&B wrapper
+│   ├── generation.py            # Claude-backed topic generation (structured outputs)
+│   ├── monitoring.py             # model health / drift for the Reports page
+│   ├── sessions.py                # disk-backed session + pending-quiz stores
+│   └── serving.py                  # the seam between trained artifacts and live requests
+├── scripts/                # download_data.py · run_pipeline.py · train_sakt.py
+├── frontend/                # static SPA (no build step)
+├── notebooks/                 # research notebooks (knowledge tracing, EDA)
+├── tests/                       # pytest — models, API, frontend markup
+├── docs/                          # all project documentation (see table below)
+└── data/legacy_kaggle/              # the predecessor Kaggle competition
 ```
 
 ## Constraints & principles
@@ -191,12 +192,17 @@ reflecta/
 - **Privacy by design** — anonymous sessions, explicit consent, automatic retention expiry,
   right-to-erasure endpoint.
 
-## Docs
+## Documentation
 
-[`GUIDEBOOK.md`](GUIDEBOOK.md) — full architecture, math, and design-decision log · 
-[`STORY.md`](STORY.md) — the Kaggle-to-Reflecta narrative · 
-[`PROJECT_PLAN.md`](PROJECT_PLAN.md) — roadmap · 
-[`SECURITY.md`](SECURITY.md) / [`PRIVACY.md`](PRIVACY.md) — compliance posture
+| Doc | Covers |
+|---|---|
+| [`docs/GUIDEBOOK.md`](docs/GUIDEBOOK.md) | Full architecture, the math behind every signal, design-decision log, end-to-end flow diagrams |
+| [`docs/STORY.md`](docs/STORY.md) | The Kaggle-to-Reflecta narrative — the 0.752 plateau, the pivot, the research arc |
+| [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) | Milestone-by-milestone roadmap |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model, hardening measures |
+| [`docs/PRIVACY.md`](docs/PRIVACY.md) | What's collected, what isn't, retention, erasure |
+| [`docs/research.md`](docs/research.md) · [`docs/architecture.md`](docs/architecture.md) | Research spine and system architecture reference |
+| [`docs/HANDOFF.md`](docs/HANDOFF.md) | Copy-paste context primer for starting a fresh session on this project |
 
 ## License
 
