@@ -20,6 +20,7 @@
 12. [Repository map](#12-repository-map)
 13. [Glossary](#13-glossary)
 14. [Roadmap](#14-roadmap)
+15. [The complete end-to-end flow (worked example)](#15-the-complete-end-to-end-flow-worked-example)
 
 ---
 
@@ -480,8 +481,9 @@ reflecta/
 ├── scripts/                 # download_data, run_pipeline, train_sakt, run_api
 ├── notebooks/               # 02_knowledge_tracing.ipynb (research narrative)
 ├── Dockerfile, docker-compose.yml, render.yaml, Makefile, .github/workflows/ci.yml
-├── LICENSE, SECURITY.md, PRIVACY.md
-└── GUIDEBOOK.md (this file), README.md, PROJECT_PLAN.md, docs/
+├── LICENSE, README.md                       # required at repo root by GitHub convention
+└── docs/                                    # GUIDEBOOK.md (this file), STORY.md,
+                                              # PROJECT_PLAN.md, SECURITY.md, PRIVACY.md
 ```
 
 ---
@@ -506,5 +508,175 @@ reflecta/
 - **Product-trained neural mastery**: once enough consented bank sessions exist, train a KT
   model on the bank's exercise space and swap it into `serving.get_mastery_estimator()`.
 - **LLM goal resolver** (free/local) for open-ended goals beyond the curated library.
-- **Database-backed session store** for multi-instance deployments (interface already abstracted).
+- ~~**Database-backed session store** for multi-instance deployments~~ — done: quiz sessions
+  are now disk-backed (`PendingSessionStore`, §15), which already survives multi-worker/
+  multi-instance deployment as long as `data/` sits on a shared volume; a real database is
+  only needed beyond that (e.g. horizontally scaled workers with no shared filesystem).
+
+---
+
+## 15. The complete end-to-end flow (worked example)
+
+Every other section explains one piece in isolation. This section walks the *entire* system
+in the order a real request actually flows, from a learner typing a goal to the numbers that
+land on the Reports page — the same walkthrough given interactively when explaining "how does
+this actually work" end to end.
+
+### 15.1 Topic entry → question bank
+
+```mermaid
+sequenceDiagram
+    participant U as Learner (browser)
+    participant API as FastAPI (api/main.py)
+    participant Bank as QuestionBank
+    participant Gen as Claude Haiku 4.5<br/>(generate)
+    participant Ver as Claude Haiku 4.5<br/>(verify, blind)
+    participant Disk as data/generated_banks/
+
+    U->>API: POST /api/quiz/start {goal, n_questions, consent, learner_id?}
+    API->>API: _goal_is_curated(goal)?<br/>(checks resolver library AND real bank content overlap)
+    alt goal matches curated content
+        API->>Bank: sample(n) from data/question_bank.json
+    else novel goal
+        API->>Disk: cached bank for slugify(goal)?
+        alt cache hit
+            Disk-->>API: cached, verified bank
+        else cache miss
+            API->>Gen: messages.parse(system, prompt, output_format=GeneratedBank)
+            Gen-->>API: structured JSON (concepts, questions, distractors) — schema<br/>enforced by the API itself, not a hand-rolled parser
+            API->>Ver: independently re-derive every answer (stem+options only,<br/>no hint of Gen's key)
+            Ver-->>API: verdicts per question id
+            API->>API: drop every question where Gen and Ver disagree
+            API->>Disk: cache the surviving bank + concept requirements
+        end
+        API->>Bank: QuestionBank.from_dict(bank).sample(n)
+    end
+    API->>API: PendingSessionStore.save(session_id, {goal, learner_id,<br/>requirements, key}) — disk-backed, not an in-memory dict
+    API-->>U: session_id + questions (answers stripped, options shuffled)
 ```
+
+**JSON enforcement, precisely.** `generation.py` calls
+`client.messages.parse(..., output_format=GeneratedBank)` where `GeneratedBank` is a Pydantic
+model (`concepts: list[GeneratedConcept]`, `questions: list[GeneratedQuestion]`). This isn't
+"ask the model to output JSON and hope" — the Claude API validates the response against the
+schema itself before it ever reaches Python, so a malformed field is a hard API-level error,
+not a runtime `KeyError` three functions later. `_normalize()` then does defensive clamping
+(difficulty into `[0.05, 0.95]`, drop any question with `< 3` options or an out-of-range
+`correct` index) as a second, independent belt-and-suspenders layer.
+
+**Storage and reuse.** A verified bank is written once to
+`data/generated_banks/{slugify(goal)}.json` and loaded straight from disk on every subsequent
+request for that goal — one Claude call pair (generate + verify) per *topic*, forever, not
+per quiz. `slugify()` is deterministic (`"AI Engineer interview"` → `ai_engineer_interview`),
+so the same goal text always resolves to the same cache file regardless of who asks.
+
+**The session itself is disk-backed too** (`PendingSessionStore`, `src/reflecta/sessions.py`)
+— the answer key, goal, and concept requirements for an in-progress quiz are written to
+`data/pending_sessions/{session_id}.json`, not held in a Python dict on the running process.
+This was a real, observed bug: an in-memory dict is wiped by any `uvicorn --reload` restart
+and is invisible across gunicorn's separate worker *processes* in production — both produce
+"unknown or expired session_id" on submit. Disk state (shared across workers, and outliving a
+single restart) fixes both; see §10's ADR log for the full incident note.
+
+### 15.2 Quiz loading and grading
+
+`QuestionBank.sample()` groups the bank by `paraphrase_group` so a reworded twin always ships
+alongside its original, then shuffles each question's option order independently with its own
+`random.Random(seed)` — no positional shortcut across questions. The client receives a
+`ServedQuestion` (stem + shuffled options, **no `correct` field at all** — it is structurally
+absent from the response model, not merely hidden by convention).
+
+On submit, `QuestionBank.grade()` compares the learner's `chosen_letter` against the
+`_KeyEntry.correct_letter` recovered from the pending-session file, producing one canonical
+interaction row per answer: `{item_id, skill, correct, difficulty, response_time,
+chosen_option, confidence, paraphrase_group, is_reworded}`. This row shape is the common
+currency the rest of the pipeline consumes — the same shape ASSISTments interactions are
+normalized into for offline training (§4), so the same signal-extraction and mastery code
+runs on both.
+
+### 15.3 Reflection calculation — signal by signal
+
+```mermaid
+flowchart LR
+    R[Graded interaction rows] --> B["features/behavior.py<br/>memorization index · timing quadrants ·<br/>confidence/correct pairs"]
+    R --> M["models/online_irt.py<br/>per-concept MAP ability<br/>(bank's authored difficulty)"]
+    B --> E["eval/metrics.py<br/>ECE · Brier"]
+    M --> G["models/intent_gap.py<br/>readiness · gap · misallocation"]
+    E --> RF["reflection/engine.py<br/>rule templates over the exact numbers"]
+    G --> RF
+    RF --> OUT[Reflection bullets + dashboard tiles]
+```
+
+Concretely, for each quiz submission `_analyze()` in `api/main.py` runs, in order:
+
+1. `extract_behavior_signals(df)` → memorization index (accuracy on original minus
+   accuracy on reworded twins, §6), timing profile (fast/slow × correct/wrong quadrants,
+   split at the learner's own median response time), and the raw per-skill accuracy dict.
+2. `confidence_pairs(df)` → `expected_calibration_error()` and `brier_score()` (§8) over
+   the (confidence, correct) pairs — this is the "0.48, mis-calibrated" number on the
+   Reflection page.
+3. `per_concept_mastery(df)` (**online IRT**, §7.2) — for each concept, MAP-estimates this
+   *one learner's* ability θ via Newton's method with a Gaussian prior, using the bank's
+   authored per-question `difficulty` mapped onto the logit scale
+   (`bank_difficulty_to_b`). This is **not a pretrained model file** — there is no training
+   step for this specific estimate. It borrows the item-difficulty side of IRT, which *was*
+   fit offline on 525k real ASSISTments rows (§7.1, §11), and fits only the ability
+   parameter live, from just this session's answers. With 2–3 answers per concept the
+   Gaussian prior shrinks the estimate toward the population average — by design, not a bug
+   (see §10's ADR and the "deliberately conservative" note on the product's own Reflection
+   page).
+4. `IntentGapMapper.analyze(goal, mastery, effort, requirements)` (§7 hero signal) —
+   `readiness = Σ importance·min(mastery, target) / Σ importance·target`, `gap = importance ·
+   max(0, target − mastery)` per concept, and misallocation flags concepts the learner spent
+   above-median effort on despite low goal-importance.
+5. `generate_reflection(signals, gap)` — fixed rule templates read the exact numbers above
+   and produce the bullet-point reflection text. No LLM runs in this step by default; an
+   optional local-model rephrasing mode exists but is instructed to never invent a new
+   number, only restate the given ones in warmer language.
+
+**Which models were actually trained, and how.** Three research models were trained offline
+on 525,534 real ASSISTments interactions with a group-aware split by learner (§7, §11):
+IRT-1PL (gradient ascent MLE, val AUC 0.506 — an honest cold-start failure), BKT (per-skill
+2-state HMM, grid-searched, val AUC 0.763), and SAKT (from-scratch PyTorch, causal-masked
+self-attention, val AUC 0.803). **None of the three offline-trained model files serve live
+traffic.** The live mastery estimator is the *online* IRT method in step 3 above — it reuses
+IRT's math but is fit per-session, not loaded from a training run. See §7.5 for exactly why
+the trained SAKT checkpoint isn't wired into serving, and `serving.get_mastery_estimator()`
+for the single seam where a product-trained model would plug in once enough consented quiz
+data exists to train on the bank's own item space.
+
+### 15.4 The Reports page — live model health and drift
+
+`GET /api/reports` (`monitoring.py`) computes three independent things, all from local state,
+with no `mlflow` import required:
+
+- **Artifact staleness** — for every file in `models_store/`, `age_days = now − mtime`;
+  `fresh` ≤ 30 days, `aging` ≤ 90, else `stale`. Purely a filesystem timestamp check.
+- **Training metrics** — read directly from the MLflow SQLite schema via a single query:
+  `SELECT r.name, m.key, m.value, MAX(m.step) FROM metrics m JOIN runs r ... GROUP BY
+  r.run_uuid, m.key`. The bare `m.value` alongside `MAX(m.step)` relies on a documented
+  SQLite-specific guarantee — when a query has exactly one MIN/MAX aggregate, every bare
+  column takes its value from the row that produced that aggregate. Verified against the
+  project's real `mlflow.db` (every row matched its ground-truth value at that step).
+- **Live drift** — every completed quiz session (`data/sessions/*.json`) is sorted by file
+  write time; `older = sessions[:n//2]`, `recent = sessions[n//2:]`,
+  `delta = mean(recent scores) − mean(older scores)`, verdict `stable` if `|delta| < 0.10`
+  else `improving`/`degrading` by sign. A reported "91% → 97%, Δ+6pp, stable" is exactly
+  `0.06 < 0.10` — the threshold, not a display artifact.
+
+```mermaid
+flowchart LR
+    Store[(data/sessions/*.json)] --> Sort[sort by file mtime]
+    Sort --> Old[older half]
+    Sort --> New[recent half]
+    Old --> Delta[delta = mean(new) - mean(old)]
+    New --> Delta
+    Delta --> Verdict{"|delta| < 0.10 ?"}
+    Verdict -->|yes| Stable[stable]
+    Verdict -->|no, delta>0| Improving[improving]
+    Verdict -->|no, delta<0| Degrading[degrading]
+```
+
+This whole section is deliberately redundant with §5–§9 in places — it exists so a single
+read, start to finish, reconstructs the entire request lifecycle without jumping between
+sections.

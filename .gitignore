@@ -24,6 +24,11 @@ models_store/
 
 # --- captured user sessions (real response data) ---
 data/sessions/
+data/pending_sessions/
+
+# local agent/skill tool artifacts (not project source)
+.agents/
+skills-lock.json
 # Claude-generated topic banks (cached per user topic)
 data/generated_banks/
 

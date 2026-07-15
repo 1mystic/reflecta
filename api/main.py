@@ -18,6 +18,7 @@ import math
 import time
 import uuid
 from collections import defaultdict, deque
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,7 +29,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from reflecta.config import CONFIG
-from reflecta.data.question_bank import QuestionBank
+from reflecta.data.question_bank import QuestionBank, _KeyEntry
 from reflecta.data.synthetic import generate_learner_log
 from reflecta.eval.metrics import brier_score, expected_calibration_error
 from reflecta.features.behavior import (
@@ -37,10 +38,10 @@ from reflecta.features.behavior import (
     per_skill_mastery,
 )
 from reflecta.logging_config import get_logger
-from reflecta.models.intent_gap import IntentGapMapper
+from reflecta.models.intent_gap import ConceptRequirement, IntentGapMapper
 from reflecta.reflection.engine import generate_reflection
 from reflecta.serving import get_mastery_estimator, model_registry_info
-from reflecta.sessions import FileSessionStore
+from reflecta.sessions import FileSessionStore, PendingSessionStore
 
 from api.schemas import (
     AnalyzeRequest,
@@ -70,16 +71,12 @@ app.add_middleware(
 _mapper = IntentGapMapper()
 _bank = QuestionBank()
 _store = FileSessionStore()
+# disk-backed (not in-memory) so a quiz survives a dev-server --reload and works
+# correctly across gunicorn's multiple worker processes in production — see
+# PendingSessionStore's docstring for the exact bug this replaced.
+_pending = PendingSessionStore()
 _mastery = get_mastery_estimator()
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-
-# session answer keys held server-side so answers never reach the client
-_SESSION_KEYS: dict[str, dict] = {}
-_SESSION_GOAL: dict[str, str] = {}
-# goal-specific concept requirements for sessions on generated topic banks
-_SESSION_REQS: dict[str, list] = {}
-# opaque client-generated learner id for this session, if the client sent one
-_SESSION_LEARNER: dict[str, str] = {}
 
 # lightweight in-memory per-IP rate limiter (swap for Redis in multi-worker prod)
 _HITS: dict[str, deque] = defaultdict(deque)
@@ -144,7 +141,6 @@ def _delivery_for_goal(goal: str, n: int):
     """Return (delivery, requirements|None). Novel topics use a Claude-generated bank
     (cached per topic); requirements come back with it for intent->gap."""
     from reflecta import generation
-    from reflecta.models.intent_gap import ConceptRequirement
 
     if _goal_is_curated(goal):
         return _bank.sample(n=n), None
@@ -279,11 +275,14 @@ def quiz_start(req: QuizStartRequest) -> QuizStartResponse:
     # it is never linked to a name/email/IP, only used to group anonymous sessions
     # so mastery can be shown to accumulate over repeat quizzes.
     learner_id = req.learner_id or uuid.uuid4().hex
-    _SESSION_KEYS[session_id] = delivery.key
-    _SESSION_GOAL[session_id] = req.goal
-    _SESSION_LEARNER[session_id] = learner_id
-    if requirements:
-        _SESSION_REQS[session_id] = requirements
+    # persisted to disk (not an in-memory dict) so this survives a dev-server reload
+    # and is visible to every gunicorn worker in production — see PendingSessionStore.
+    _pending.save(session_id, {
+        "goal": req.goal,
+        "learner_id": learner_id,
+        "requirements": [asdict(r) for r in requirements] if requirements else None,
+        "key": {qid: asdict(entry) for qid, entry in delivery.key.items()},
+    })
     log.info("quiz_started", extra={"session_id": session_id, "n": len(delivery.questions),
                                     "generated": requirements is not None})
     return QuizStartResponse(
@@ -294,10 +293,14 @@ def quiz_start(req: QuizStartRequest) -> QuizStartResponse:
 
 @app.post("/api/quiz/submit", response_model=QuizSubmitResponse)
 def quiz_submit(req: QuizSubmitRequest) -> QuizSubmitResponse:
-    key = _SESSION_KEYS.get(req.session_id)
-    if key is None:
+    pending = _pending.pop(req.session_id)
+    if pending is None:
         raise HTTPException(status_code=404, detail="unknown or expired session_id")
-    goal = _SESSION_GOAL.get(req.session_id, "data science interview")
+    goal = pending.get("goal", "data science interview")
+    key = {qid: _KeyEntry(**d) for qid, d in pending["key"].items()}
+    requirements = ([ConceptRequirement(**r) for r in pending["requirements"]]
+                    if pending.get("requirements") else None)
+    learner_id = pending.get("learner_id")
 
     rows, graded = [], []
     for ans in req.answers:
@@ -314,9 +317,8 @@ def quiz_submit(req: QuizSubmitRequest) -> QuizSubmitResponse:
         raise HTTPException(status_code=400, detail="no gradeable answers")
 
     df = pd.DataFrame(rows)
-    analysis = _analyze(goal, df, requirements=_SESSION_REQS.get(req.session_id))
+    analysis = _analyze(goal, df, requirements=requirements)
     score = float(df["correct"].mean())
-    learner_id = _SESSION_LEARNER.get(req.session_id)
 
     _store.save(req.session_id, {
         "session_id": req.session_id,
@@ -327,10 +329,6 @@ def quiz_submit(req: QuizSubmitRequest) -> QuizSubmitResponse:
     })
     history = _learner_history(learner_id) if learner_id else None
 
-    _SESSION_KEYS.pop(req.session_id, None)
-    _SESSION_GOAL.pop(req.session_id, None)
-    _SESSION_REQS.pop(req.session_id, None)
-    _SESSION_LEARNER.pop(req.session_id, None)
     return QuizSubmitResponse(session_id=req.session_id, score=score,
                               graded=graded, analysis=analysis, history=history)
 

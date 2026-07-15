@@ -12,7 +12,7 @@
 [![MLflow](https://img.shields.io/badge/tracking-MLflow-0194E2.svg)](src/reflecta/tracking/experiment.py)
 
 **[Live demo →](#)** *(deploy pending — see [Quickstart](#quickstart) to run locally in 2 minutes)*
-&nbsp;·&nbsp; **[Architecture guidebook →](GUIDEBOOK.md)** &nbsp;·&nbsp; **[The origin story →](STORY.md)**
+&nbsp;·&nbsp; **[Architecture guidebook →](docs/GUIDEBOOK.md)** &nbsp;·&nbsp; **[The origin story →](docs/STORY.md)**
 
 </div>
 
@@ -41,7 +41,7 @@ pipeline trained on **525,000 real learner interactions**, tracked with **MLflow
 
 Trained on ASSISTments 2009 (525,534 interactions), evaluated on a **group-aware split by
 learner** — the split discipline exists because a naive random split leaks and reports
-artificially high scores (see [`STORY.md`](STORY.md) for why this matters and how it was found).
+artificially high scores (see [`docs/STORY.md`](docs/STORY.md) for why this matters and how it was found).
 
 | Model | Task | Val AUC | Notes |
 |---|---|---:|---|
@@ -53,7 +53,7 @@ The IRT failure is the more interesting result: it's what motivated **online per
 ability estimation** (`models/online_irt.py`) — freezing item difficulties and fitting just the
 new learner's ability via MAP with a Gaussian prior — which is what actually powers live
 mastery estimates in the product today. *Why the trained SAKT model isn't wired into the live
-API yet* is answered directly in [`GUIDEBOOK.md`](GUIDEBOOK.md#serving-decisions) — it's a
+API yet* is answered directly in [`docs/GUIDEBOOK.md`](docs/GUIDEBOOK.md#serving-decisions) — it's a
 deliberate engineering call, not an oversight.
 
 ---
@@ -104,8 +104,8 @@ flowchart TB
     MLF -.->|artifacts inspected by| MON
 ```
 
-See [`GUIDEBOOK.md`](GUIDEBOOK.md) for the full design-decision log, the math behind every
-signal (with derivations), and sequence diagrams for the live quiz flow.
+See [`docs/GUIDEBOOK.md`](docs/GUIDEBOOK.md) for the full design-decision log, the math behind
+every signal (with derivations), and sequence diagrams for the live quiz flow.
 
 ## The five signals
 
@@ -134,12 +134,13 @@ signal (with derivations), and sequence diagrams for the live quiz flow.
   JSON logging, request IDs.
 - **Production posture** — multi-stage Docker build, non-root user, gunicorn+uvicorn, health
   and readiness probes, per-IP rate limiting, CORS lockdown in prod, consent-gated storage with
-  a right-to-erasure endpoint. See [`SECURITY.md`](SECURITY.md) / [`PRIVACY.md`](PRIVACY.md).
+  a right-to-erasure endpoint. See [`docs/SECURITY.md`](docs/SECURITY.md) /
+  [`docs/PRIVACY.md`](docs/PRIVACY.md).
 - **Tests + CI** — pytest suite covering the models and API, GitHub Actions running tests and a
   Docker build on every push.
 - **Honest evaluation discipline** — every reported metric comes from a group-aware split by
   learner; the leakage failure mode that motivated this is documented in
-  [`STORY.md`](STORY.md), not hidden.
+  [`docs/STORY.md`](docs/STORY.md), not hidden.
 
 ---
 

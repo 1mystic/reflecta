@@ -105,7 +105,7 @@ class GeneratedBank(BaseModel):
 
 # ---- self-verification: an independent second pass re-derives each answer ----
 # This exists because of a concrete prior failure: the predecessor Kaggle project found
-# ~25% of a *human-authored* MCQ dataset had wrong or ambiguous answer keys (see STORY.md).
+# ~25% of a *human-authored* MCQ dataset had wrong or ambiguous answer keys (see docs/STORY.md).
 # An LLM-generated bank is at least as capable of shipping a wrong key silently. Rather than
 # trust the generation call, a second, independent call re-solves every question from just
 # the stem + options (no hint of which one the generator marked correct) and any question

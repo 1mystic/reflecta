@@ -43,6 +43,7 @@ class Paths:
     processed: Path = ROOT / "data" / "processed"
     legacy_kaggle: Path = ROOT / "data" / "legacy_kaggle"
     sessions: Path = ROOT / "data" / "sessions"
+    pending_sessions: Path = ROOT / "data" / "pending_sessions"
     experiments: Path = ROOT / "experiments"
     models_store: Path = ROOT / "models_store"
 

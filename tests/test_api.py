@@ -95,3 +95,32 @@ def test_goal_without_matching_bank_content_is_not_served_as_curated():
         # relevant to biology, not the curated data-science bank
         stems = " ".join(q["stem"].lower() for q in r.json()["questions"])
         assert not any(kw in stems for kw in ("eigenvalue", "bayes", "left join"))
+
+
+def test_quiz_session_survives_pending_store_restart():
+    """Regression: quiz sessions used to live in an in-memory dict on the FastAPI app.
+    That broke on any `uvicorn --reload` restart (wipes the dict) and would have broken
+    across gunicorn's multiple worker processes in production (each has separate
+    memory) - both surfaced to the user as "unknown or expired session_id" on submit.
+    Verifies the fix directly at the storage layer: a session saved by one
+    PendingSessionStore instance must be readable by a completely separate instance,
+    simulating a different process/worker."""
+    import json as _json
+
+    from reflecta.sessions import PendingSessionStore
+
+    worker_a = PendingSessionStore()
+    payload = {
+        "goal": "test goal", "learner_id": "learner-1", "requirements": None,
+        "key": {"q1": {"id": "q1", "concept": "x", "difficulty": 0.5,
+                       "paraphrase_group": "g", "is_reworded": 0,
+                       "correct_letter": "A", "explanation": "e"}},
+    }
+    worker_a.save("regression_test_session", payload)
+
+    worker_b = PendingSessionStore()  # fresh instance: no shared memory with worker_a
+    result = worker_b.pop("regression_test_session")
+    assert result is not None
+    assert result["goal"] == "test goal"
+    # consumed exactly once - a second pop must not resurrect it
+    assert worker_b.pop("regression_test_session") is None

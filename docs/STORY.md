@@ -306,9 +306,9 @@ above is a better source of truth than marketing copy would be:
 
 ## Where to go next
 
-- [`README.md`](README.md) — quickstart, results table, architecture diagram
+- [`../README.md`](../README.md) — quickstart, results table, architecture diagram
 - [`GUIDEBOOK.md`](GUIDEBOOK.md) — the exhaustive reference: every formula, every design
   decision, a full glossary
-- [`docs/legacy/`](docs/legacy/) and [`data/legacy_kaggle/`](data/legacy_kaggle/) — the
+- [`legacy/`](legacy/) and [`../data/legacy_kaggle/`](../data/legacy_kaggle/) — the
   original Kaggle project this all grew out of
 - [`PROJECT_PLAN.md`](PROJECT_PLAN.md) — the milestone-by-milestone roadmap

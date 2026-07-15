@@ -91,3 +91,65 @@ class FileSessionStore:
                 out.append(data)
         out.sort(key=lambda d: d.get("stored_at") or d.get("timestamp") or "")
         return out[-limit:]
+
+
+class PendingSessionStore:
+    """Disk-backed state for an in-progress quiz (the server-side answer key, goal, and
+    goal requirements between /quiz/start and /quiz/submit).
+
+    This used to be a plain in-memory dict on the FastAPI app. That broke in two
+    concrete, observed ways:
+      1. `uvicorn --reload` restarts the whole Python process on any file save (including
+         edits unrelated to the running quiz), wiping every in-memory dict — a learner
+         mid-quiz would submit into an empty dict and get "unknown or expired session_id".
+      2. In production, gunicorn runs multiple *worker processes* (see Dockerfile: `-w 2`).
+         Each worker has its own memory. A session started on worker A and submitted to
+         worker B (a normal round-robin outcome) would never be found — the exact same
+         symptom, but permanent, not just a dev-server quirk.
+    Writing to a shared file (visible to every worker, and to the next process after a
+    restart) fixes both. TTL-expiry treats an abandoned quiz (tab left open past the
+    window) the same as a truly unknown id, without needing a background cron job.
+    """
+
+    def __init__(self, directory: Path | None = None, ttl_hours: float = 4.0):
+        self.dir = directory or CONFIG.paths.pending_sessions
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self.ttl = timedelta(hours=ttl_hours)
+
+    def _path(self, session_id: str) -> Path:
+        safe = "".join(c for c in session_id if c.isalnum())
+        return self.dir / f"{safe}.json"
+
+    def save(self, session_id: str, payload: dict) -> None:
+        payload = {**payload, "created_at": datetime.now(timezone.utc).isoformat()}
+        self._path(session_id).write_text(json.dumps(payload), encoding="utf-8")
+
+    def pop(self, session_id: str) -> dict | None:
+        """Read and delete — a pending session is consumed exactly once, on submit."""
+        path = self._path(session_id)
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            created = datetime.fromisoformat(data["created_at"])
+        except Exception:
+            path.unlink(missing_ok=True)
+            return None
+        path.unlink(missing_ok=True)
+        if datetime.now(timezone.utc) - created > self.ttl:
+            return None  # expired: treat identically to "never existed"
+        return data
+
+    def sweep_expired(self) -> int:
+        """Delete abandoned pending sessions (tab left open past the TTL window)."""
+        cutoff = datetime.now(timezone.utc) - self.ttl
+        removed = 0
+        for path in self.dir.glob("*.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if datetime.fromisoformat(data["created_at"]) < cutoff:
+                    path.unlink()
+                    removed += 1
+            except Exception:
+                continue
+        return removed
