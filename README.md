@@ -1,8 +1,8 @@
 <div align="center">
 
-# Reflecta
+<img src="assets/readme/hero.svg" alt="Reflecta — a quiz that tells you more than a score. The 75% ring shown is the product's own goal-readiness gauge." width="100%" />
 
-**A quiz that tells you *why* you're stuck — not just what you got wrong.**
+<br/>
 
 [![CI](https://github.com/1mystic/reflecta/actions/workflows/ci.yml/badge.svg)](https://github.com/1mystic/reflecta/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
