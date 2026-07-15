@@ -193,6 +193,12 @@
               </div>
             </div>
 
+            <div class="card history-card hidden" id="history-card">
+              <h3>Past reflections</h3>
+              <p class="muted">Stored in this browser only, not on a server. Click any entry to view it.</p>
+              <div id="history-list" class="history-list"></div>
+            </div>
+
             <div class="card growth hidden" id="growth-card">
               <h3>Your growth</h3>
               <p class="muted" id="growth-summary"></p>
@@ -315,11 +321,19 @@
                 <li>Your session is an <b>opaque random id</b> - not linked to who you are</li>
               </ul>
 
+              <h3 class="p-subhead">What stays only in this browser</h3>
+              <ul class="p-list">
+                <li>Your growth-tracking id and a copy of each past reflection (goal, score, and analysis)
+                are saved in this browser's local storage, so "Reflection" in the sidebar can show your
+                history - this data never leaves your device on its own</li>
+              </ul>
+
               <h3 class="p-subhead">Your control</h3>
               <ul class="p-list">
                 <li>Data is used only to generate and improve your reflection</li>
-                <li>Sessions auto-delete after the retention window</li>
-                <li>You can delete a session anytime (right to erasure) - see the button on your Reflection page</li>
+                <li>Sessions auto-delete after the retention window on the server</li>
+                <li>You can delete a session anytime (right to erasure) - the button on your Reflection page
+                also clears your local reflection history and growth-tracking id</li>
               </ul>
 
               <p class="muted" style="margin-top:16px">Deploying to under-age learners? Parental consent and

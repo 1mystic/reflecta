@@ -37,6 +37,21 @@ def test_calibration_metrics_bounds():
     assert next_question_auc(probs, out) == 1.0  # perfectly separable
 
 
+def test_ece_includes_zero_confidence_boundary():
+    """Regression: bins used to be (lo, hi], which excludes confidence == 0.0 (the
+    "guessing" end of the UI's slider) from every bin — a learner who says 0% confident
+    but answers correctly every time (worst-case miscalibration) was silently reported
+    as ECE=0.0 ("perfectly calibrated") because their data point matched no bin."""
+    probs = np.array([0.0, 0.0, 0.0, 0.0])
+    outcomes = np.array([1, 1, 1, 1])  # confident-of-nothing but always right: max miscalibration
+    assert expected_calibration_error(probs, outcomes) == 1.0
+
+    # sanity: a genuinely well-calibrated 0.0-confidence learner still scores 0
+    probs2 = np.array([0.0, 0.0, 1.0, 1.0])
+    outcomes2 = np.array([0, 0, 1, 1])
+    assert expected_calibration_error(probs2, outcomes2) == 0.0
+
+
 def test_intent_gap_report():
     df = generate_learner_log(learner_id=1, memorizer=True, seed=5)
     mastery = per_skill_mastery(df)

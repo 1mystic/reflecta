@@ -1,10 +1,10 @@
-"""Reflection engine — turn signals into specific, realistic prompts (signal #5).
+"""Reflection engine - turn signals into specific, realistic prompts (signal #5).
 
 Free-only by design. Two modes:
   - "rules"  : deterministic templates over the signal bundle. No model, always available,
                fully explainable. This is the default and the fallback.
   - "llm"    : a local/open model (Ollama or transformers) rephrases the rule-derived
-               facts into a warmer, personalized reflection. Never invents facts — it is
+               facts into a warmer, personalized reflection. Never invents facts - it is
                given the exact numbers and told to explain, not assess.
 
 The rules mode is intentionally strong on its own: the value is the *diagnosis*, and the
@@ -22,13 +22,13 @@ def _rules_reflection(signals: dict, gap: GapReport | None) -> list[str]:
     tp = signals.get("timing_profile") or {}
     if tp.get("fast_wrong", 0) > 0.2:
         out.append(
-            "You answer a lot of questions quickly and get them wrong — that pattern usually "
+            "You answer a lot of questions quickly and get them wrong - that pattern usually "
             "means a confident misconception, not carelessness. Slow down on those topics and "
             "check *why* your first instinct is off."
         )
     if tp.get("slow_correct", 0) > 0.4:
         out.append(
-            "You're getting things right, but effortfully. That's real learning in progress — "
+            "You're getting things right, but effortfully. That's real learning in progress - "
             "with spaced repetition these should become fast-correct (fluent)."
         )
 
@@ -36,7 +36,7 @@ def _rules_reflection(signals: dict, gap: GapReport | None) -> list[str]:
     if mi is not None and mi == mi and mi > 0.15:  # not NaN and meaningful
         out.append(
             f"When the same idea is reworded, your accuracy drops by {mi:.0%}. You're "
-            "recognizing familiar phrasing more than understanding the concept — try "
+            "recognizing familiar phrasing more than understanding the concept - try "
             "explaining it in your own words before answering."
         )
 
@@ -47,17 +47,17 @@ def _rules_reflection(signals: dict, gap: GapReport | None) -> list[str]:
         if direction > 0.1:
             out.append(
                 f"Your confidence runs well above your accuracy (calibration error {ece:.2f}). "
-                "Overconfidence hides gaps — before answering, ask what would make you wrong."
+                "Overconfidence hides gaps - before answering, ask what would make you wrong."
             )
         elif direction < -0.1:
             out.append(
-                f"You're more capable than you think — your answers beat your confidence by a wide "
+                f"You're more capable than you think - your answers beat your confidence by a wide "
                 f"margin (calibration error {ece:.2f}). Trust your reasoning more."
             )
         else:
             out.append(
                 f"Your confidence and accuracy are noticeably out of sync (calibration error "
-                f"{ece:.2f}) — rate yourself more deliberately on each question."
+                f"{ece:.2f}) - rate yourself more deliberately on each question."
             )
 
     if gap is not None:
@@ -69,14 +69,14 @@ def _rules_reflection(signals: dict, gap: GapReport | None) -> list[str]:
             names = ", ".join(g.concept.replace('_', ' ') for g in top if g.gap > 0)
             if names:
                 out.append(f"The highest-leverage gap right now is: {names}. "
-                           "Focus study time here — it moves your goal the most.")
+                           "Focus study time here - it moves your goal the most.")
         if gap.misallocation:
             names = ", ".join(c.replace('_', ' ') for c in gap.misallocation)
             out.append(f"You're spending real effort on {names}, which your goal barely "
                        "needs. Consider redirecting that time.")
 
     if not out:
-        out.append("Not enough signal yet — take a few more questions and I'll reflect back "
+        out.append("Not enough signal yet - take a few more questions and I'll reflect back "
                    "specific patterns.")
     return out
 

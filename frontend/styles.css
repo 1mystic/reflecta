@@ -414,6 +414,21 @@ input[type=range] { width: 100%; accent-color: var(--brown); }
 .score-badge small { font-size: 11px; color: var(--brown); }
 .result-title { margin: 0; }
 
+/* past-reflections history list (client-side only, see localStorage in app.js) */
+.history-card { margin-top: 14px; }
+.history-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.history-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); cursor: pointer; text-align: left; width: 100%;
+  font-family: inherit; transition: border-color .15s, background .15s;
+}
+.history-item:hover { border-color: var(--brown); background: var(--brown-soft); }
+.history-item.active { border-color: var(--brown-deep); background: var(--brown-soft); }
+.history-item .hi-goal { font-weight: 700; font-size: 14px; text-transform: capitalize; }
+.history-item .hi-date { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.history-item .hi-score { font-weight: 800; font-size: 16px; color: var(--brown-deep); flex-shrink: 0; }
+
 .growth { margin-top: 14px; }
 .growth-track {
   display: flex; align-items: flex-end; gap: 8px; height: 64px; margin-top: 10px;

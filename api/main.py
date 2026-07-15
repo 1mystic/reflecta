@@ -156,11 +156,11 @@ def _delivery_for_goal(goal: str, n: int):
             status_code=503,
             detail=("This topic isn't in the built-in bank, and open-topic generation is "
                     "disabled. Set ANTHROPIC_API_KEY on the server to enable quizzes on "
-                    "any topic — or try the built-in goal 'data science interview'."))
+                    "any topic, or try the built-in goal 'data science interview'."))
     except Exception:
         log.exception("bank_generation_failed", extra={"goal": goal})
         raise HTTPException(status_code=503,
-                            detail="Topic generation is temporarily unavailable — "
+                            detail="Topic generation is temporarily unavailable, "
                                    "please try again in a minute.")
 
     reqs = [ConceptRequirement(c["concept"], c["importance"], c["target"])

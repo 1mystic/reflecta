@@ -169,6 +169,62 @@ function recordAndNext() {
   }
 }
 
+// ── reflection history: stored client-side only (localStorage), never sent to the
+// server beyond the original quiz submission. Lets "Reflection" in the sidebar show
+// past quizzes from this browser, not just the one just taken. ──
+const HISTORY_KEY = "reflecta_reflection_history";
+const HISTORY_MAX = 20;
+
+function getReflectionHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveReflectionToHistory(submitResponse) {
+  // embed each graded item's stem now, while state.questions still has it, so a
+  // stored entry is fully self-contained and renders correctly after a page reload
+  const graded = (submitResponse.graded || []).map((g) => ({
+    ...g, stem: state.questions.find((x) => x.id === g.question_id)?.stem || g.question_id,
+  }));
+  const entry = {
+    timestamp: new Date().toISOString(),
+    goal: submitResponse.analysis.goal,
+    score: submitResponse.score,
+    analysis: submitResponse.analysis,
+    graded,
+    history: submitResponse.history || null,
+  };
+  const hist = [entry, ...getReflectionHistory()].slice(0, HISTORY_MAX);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(hist)); } catch { /* storage full/blocked: skip silently */ }
+  return entry;
+}
+
+function renderHistoryList(activeTimestamp) {
+  const card = $("history-card");
+  const list = $("history-list");
+  const hist = getReflectionHistory();
+  if (!hist.length) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  list.innerHTML = "";
+  hist.forEach((entry) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "history-item" + (entry.timestamp === activeTimestamp ? " active" : "");
+    const date = new Date(entry.timestamp).toLocaleString(undefined, {
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+    btn.innerHTML =
+      `<div><div class="hi-goal">${entry.goal}</div><div class="hi-date">${date}</div></div>` +
+      `<div class="hi-score">${pct(entry.score)}</div>`;
+    btn.addEventListener("click", () => {
+      renderResults(entry);
+      hasReflection = true;
+      show("results");
+    });
+    list.appendChild(btn);
+  });
+}
+
 async function submitQuiz() {
   const btn = $("next-btn");
   btn.disabled = true; btn.textContent = "Analyzing…";
@@ -178,7 +234,9 @@ async function submitQuiz() {
       body: JSON.stringify({ session_id: state.sessionId, answers: Object.values(state.answers) }),
     });
     if (!res.ok) throw new Error(await readApiError(res));
-    renderResults(await res.json());
+    const submitResponse = await res.json();
+    const savedEntry = saveReflectionToHistory(submitResponse);
+    renderResults({ ...submitResponse, timestamp: savedEntry.timestamp });
     hasReflection = true;
     show("results");
   } catch (e) {
@@ -209,7 +267,8 @@ function renderGrowth(history) {
     const bar = document.createElement("div");
     bar.className = "growth-bar" + (isLast ? " current" : "");
     bar.style.height = Math.max(6, Math.round(r * 64)) + "px";
-    bar.innerHTML = isLast ? `<span>${pct(r)}</span>` : "";
+    // every bar gets its own percentage label, not just the most recent one
+    bar.innerHTML = `<span>${pct(r)}</span>`;
     track.appendChild(bar);
   });
 }
@@ -220,6 +279,7 @@ function renderResults(d) {
   $("score-val").textContent = pct(d.score);
   $("result-goal").textContent = `toward “${a.goal}”`;
   renderGrowth(d.history);
+  renderHistoryList(d.timestamp);
 
   const deg = Math.round((a.readiness || 0) * 360);
   $("ring").style.background = `conic-gradient(var(--brown) ${deg}deg, var(--line) ${deg}deg)`;
@@ -273,12 +333,14 @@ function renderResults(d) {
 
   const rev = $("review-list"); rev.innerHTML = "";
   (d.graded || []).forEach((g) => {
-    const q = state.questions.find((x) => x.id === g.question_id);
+    // stem comes embedded on stored history entries (see saveReflectionToHistory);
+    // for a just-completed live quiz it's looked up from the in-memory question list
+    const stem = g.stem || state.questions.find((x) => x.id === g.question_id)?.stem || g.question_id;
     const ok = g.correct === 1;
     const div = document.createElement("div");
     div.className = "review-item";
     div.innerHTML =
-      `<div class="r-stem"><span class="r-mark ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"}</span>${q ? q.stem : g.question_id}</div>` +
+      `<div class="r-stem"><span class="r-mark ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"}</span>${stem}</div>` +
       (ok ? "" : `<div class="muted">Correct answer: <b>${g.correct_letter}</b> · you chose ${g.chosen_letter || "none"}</div>`) +
       `<div class="r-exp">${g.explanation}</div>`;
     rev.appendChild(div);
@@ -299,7 +361,20 @@ let hasReflection = false;
 document.querySelectorAll(".nav-item[data-view]").forEach((el) => {
   el.addEventListener("click", () => {
     const v = el.dataset.view;
-    if (v === "results") { show(hasReflection ? "results" : "start"); return; }
+    if (v === "results") {
+      if (hasReflection) { show("results"); return; }
+      // no quiz taken yet this page-load - fall back to the most recent stored
+      // reflection from this browser, if any, instead of always redirecting to setup
+      const hist = getReflectionHistory();
+      if (hist.length) {
+        renderResults(hist[0]);
+        hasReflection = true;
+        show("results");
+      } else {
+        show("start");
+      }
+      return;
+    }
     if (v === "reports") { show("reports"); loadReports(); return; }
     show(v);
   });
@@ -373,10 +448,12 @@ $("restart-btn").addEventListener("click", () => show("start"));
 // growth-tracking id, so nothing links future quizzes back to what's being deleted now
 $("delete-btn").addEventListener("click", async () => {
   if (!state.sessionId) return;
-  if (!confirm("Delete your anonymous responses for this session and forget this device?")) return;
+  if (!confirm("Delete your anonymous responses for this session and forget this device (including your saved reflection history)?")) return;
   try {
     const res = await fetch(`${API}/api/session/${state.sessionId}`, { method: "DELETE" });
     clearLearnerId();
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistoryList();
     alert(res.ok ? "Your responses were deleted." : "Nothing to delete (already removed).");
   } catch (e) { alert("Delete failed.\n\n" + e); }
 });

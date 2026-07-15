@@ -35,8 +35,14 @@ def expected_calibration_error(
     edges = np.linspace(0.0, 1.0, n_bins + 1)
     ece = 0.0
     n = len(probs)
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        mask = (probs > lo) & (probs <= hi)
+    for i, (lo, hi) in enumerate(zip(edges[:-1], edges[1:])):
+        # bins are (lo, hi] except the first, which is [0, hi] — otherwise a
+        # confidence of exactly 0.0 (the "guessing" end of the slider) matches no
+        # bin at all and is silently dropped from the whole calculation, which
+        # previously let a learner who says "0% confident" but answers correctly
+        # every time (the worst possible miscalibration) come back as ECE=0.0
+        # ("perfectly calibrated").
+        mask = (probs > lo) & (probs <= hi) if i > 0 else (probs >= lo) & (probs <= hi)
         if not mask.any():
             continue
         conf = probs[mask].mean()
