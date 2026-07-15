@@ -1,22 +1,22 @@
-// Reflecta — live quiz flow. Talks to the FastAPI backend.
+// Reflecta - live quiz flow. Talks to the FastAPI backend.
 //
 // This frontend is a static SPA served BY the same FastAPI process it talks to
-// (see api/main.py's StaticFiles mount) — that's why there's no build step and no
+// (see api/main.py's StaticFiles mount) - that's why there's no build step and no
 // separate frontend server: uvicorn/gunicorn on :8000 serves both the API and this
 // file. The correct base URL is therefore always same-origin. The one exception is
-// opening this file directly (`file://`), e.g. while editing — there is no "origin"
+// opening this file directly (`file://`), e.g. while editing - there is no "origin"
 // to be same as, so fall back to localhost:8000 explicitly.
 //
 // If you *do* run this file from a separate dev server (a bundler, VS Code Live
 // Server, etc.) on a different port, requests will silently go to that dev server
 // instead of the API and fail (commonly as a 404 or 405, since most static dev
-// servers don't implement POST) — always open http://localhost:8000 directly, or set
+// servers don't implement POST) - always open http://localhost:8000 directly, or set
 // window.REFLECTA_API_BASE before this script loads if you truly need to override it.
 const API = window.REFLECTA_API_BASE ?? (location.protocol === "file:" ? "http://localhost:8000" : "");
 const $ = (id) => document.getElementById(id);
 const pct = (x) => (x == null ? "–" : Math.round(x * 100) + "%");
 
-// Opaque, client-only learner id (server-minted UUID, no PII) — persisted so mastery
+// Opaque, client-only learner id (server-minted UUID, no PII) - persisted so mastery
 // can be shown to accumulate across repeat quizzes. "Delete my responses" (below) also
 // clears it, so erasure means forgetting the device link too, not just one session.
 const LEARNER_KEY = "reflecta_learner_id";
@@ -63,7 +63,7 @@ const PAGE_TITLE = { start: "Take Quiz", quiz: "Quiz",
 const SCREENS = ["start", "quiz", "results", "reports", "privacy"];
 
 // The true marketing landing page (#landing, no sidebar) and the app shell
-// (#app-shell, sidebar + screens) are separate top-level views — "Get started" enters
+// (#app-shell, sidebar + screens) are separate top-level views - "Get started" enters
 // the app shell; the sidebar's logo returns to the landing page.
 function enterApp() {
   $("landing").classList.add("hidden");
@@ -251,7 +251,7 @@ function renderResults(d) {
 
   const gl = $("gap-list"); gl.innerHTML = "";
   if (!(a.gaps || []).length) {
-    gl.innerHTML = `<p class="muted">No gaps against this goal — every required concept is at
+    gl.innerHTML = `<p class="muted">No gaps against this goal - every required concept is at
       or above its target. Consider a harder goal or more questions.</p>`;
   }
   const maxGap = Math.max(0.001, ...(a.gaps || []).map((g) => g.gap));
@@ -279,7 +279,7 @@ function renderResults(d) {
     div.className = "review-item";
     div.innerHTML =
       `<div class="r-stem"><span class="r-mark ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"}</span>${q ? q.stem : g.question_id}</div>` +
-      (ok ? "" : `<div class="muted">Correct answer: <b>${g.correct_letter}</b> · you chose ${g.chosen_letter || "—"}</div>`) +
+      (ok ? "" : `<div class="muted">Correct answer: <b>${g.correct_letter}</b> · you chose ${g.chosen_letter || "none"}</div>`) +
       `<div class="r-exp">${g.explanation}</div>`;
     rev.appendChild(div);
   });
@@ -340,7 +340,7 @@ async function loadReports() {
     $("rep-drift").innerHTML = drift
       ? `Live drift check: older avg score <b>${pct(drift.older_avg_score)}</b> → recent
          <b>${pct(drift.recent_avg_score)}</b> (Δ ${drift.delta >= 0 ? "+" : ""}${Math.round(drift.delta*100)}pp)
-         — <span class="pill pill-${drift.verdict === "stable" || drift.verdict === "improving" ? "fresh" : "stale"}">${drift.verdict}</span>`
+         - <span class="pill pill-${drift.verdict === "stable" || drift.verdict === "improving" ? "fresh" : "stale"}">${drift.verdict}</span>`
       : `<span class="muted">Live drift check needs at least 6 stored sessions.</span>`;
 
     // training metrics from MLflow
@@ -356,7 +356,7 @@ async function loadReports() {
       box.appendChild(div);
     });
     if (!(d.training_metrics || []).length)
-      box.innerHTML = `<span class="muted">No MLflow runs found — run scripts/run_pipeline.py to train.</span>`;
+      box.innerHTML = `<span class="muted">No MLflow runs found - run scripts/run_pipeline.py to train.</span>`;
   } catch (e) {
     $("rep-status").textContent = "unreachable";
     $("rep-status-dot").className = "dot dot-low";
@@ -383,7 +383,7 @@ $("delete-btn").addEventListener("click", async () => {
 
 // Reachability check + goal hint, both from one /api/ready call. If the request fails,
 // this page is very likely being served by something other than the FastAPI backend
-// (a separate dev server, or opened as a raw file) — surface a visible, actionable
+// (a separate dev server, or opened as a raw file) - surface a visible, actionable
 // banner instead of leaving it as a silent console 404/405 (see the API const comment
 // above for why same-origin is always correct for this app).
 (async function initReadyCheck() {
@@ -396,8 +396,8 @@ $("delete-btn").addEventListener("click", async () => {
     if (hint) {
       const curated = (d.curated_goals || []).map((g) => `“${g}”`).join(", ");
       hint.textContent = d.open_topics_enabled
-        ? `Any topic works — built-in: ${curated || "none"}. Anything else is generated on the fly.`
-        : `Open-topic generation is off on this server — built-in goals only for now: ${curated || "data science interview"}.`;
+        ? `Any topic works - built-in: ${curated || "none"}. Anything else is generated on the fly.`
+        : `Open-topic generation is off on this server - built-in goals only for now: ${curated || "data science interview"}.`;
     }
   } catch {
     if (hint) hint.textContent = "";

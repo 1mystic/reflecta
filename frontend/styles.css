@@ -102,7 +102,7 @@ body {
    max-width so a wide screen doesn't turn into a wall of unbroken text. */
 .landing { min-height: 100vh; display: flex; flex-direction: column; position: relative; overflow-x: hidden; }
 
-/* soft decorative depth — subtle, low-opacity blurred shapes behind the hero only */
+/* soft decorative depth - subtle, low-opacity blurred shapes behind the hero only */
 .landing::before, .landing::after {
   content: ""; position: absolute; z-index: 0; border-radius: 50%; filter: blur(70px);
   opacity: .35; pointer-events: none;
@@ -259,7 +259,7 @@ body {
 .w-cta-secondary .bi { width: 17px; height: 17px; }
 
 /* .btn.w-cta (two classes, specificity 0,2,0) deliberately outranks .btn-primary's
-   `width: 100%` (0,1,0) regardless of declaration order in the file — relying on
+   `width: 100%` (0,1,0) regardless of declaration order in the file - relying on
    cascade order alone here previously made this button silently stretch full-width
    whenever .btn-primary was edited to appear later in the stylesheet. */
 .btn.w-cta {
@@ -445,7 +445,7 @@ input[type=range] { width: 100%; accent-color: var(--brown); }
 .bar-row .lbl { width: 96px; color: var(--muted); flex-shrink: 0; }
 .bar-track { flex: 1; height: 9px; border-radius: 6px; background: var(--line-soft); overflow: hidden; }
 /* .bar-fill/.gap-fill are <span>s (inline by default) sized via an inline `width:%`
-   style set in JS — width has no effect on inline elements, so without `display: block`
+   style set in JS - width has no effect on inline elements, so without `display: block`
    here the fill silently collapses to a hairline regardless of the JS-computed percent. */
 .bar-fill { display: block; height: 100%; border-radius: 6px; min-width: 3px; transition: width .4s ease; }
 
@@ -530,7 +530,7 @@ tr:last-child td { border-bottom: none; }
   .landing::before, .landing::after { display: none; } /* avoid overflow/clutter on small viewports */
 }
 
-/* custom scrollbar — thin, palette-matched track/thumb, works in Chromium/WebKit and Firefox */
+/* custom scrollbar - thin, palette-matched track/thumb, works in Chromium/WebKit and Firefox */
 * { scrollbar-width: thin; scrollbar-color: var(--brown-soft) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

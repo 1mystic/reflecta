@@ -85,3 +85,19 @@ def test_hero_cta_wins_specificity_over_btn_primary_full_width():
         "0,2,0 (e.g. `.btn.w-cta`) so it beats .btn-primary's `width: 100%` "
         "regardless of which rule appears later in the stylesheet"
     )
+
+
+def test_no_em_dashes_in_frontend_pages():
+    """User-requested style rule: no em dashes (U+2014) anywhere in the rendered pages."""
+    for name in ("index.html", "app.js", "styles.css", "privacy.html"):
+        text = (FRONTEND / name).read_text(encoding="utf-8")
+        assert "—" not in text, f"em dash found in {name}"
+
+
+def test_sidebar_has_no_api_docs_nav_item():
+    """User-requested: the 'API & Help' / API docs link was removed from the sidebar nav
+    (the landing page footer's separate API docs link is unaffected)."""
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    sidebar = html.split('<nav class="nav">')[1].split("</nav>")[0]
+    assert "/docs" not in sidebar
+    assert "API" not in sidebar

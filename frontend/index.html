@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reflecta — learn on purpose</title>
+  <title>Reflecta - learn on purpose</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- shown only if the API can't be reached from this page's origin — the frontend has
+  <!-- shown only if the API can't be reached from this page's origin - the frontend has
        no independent life; it must be opened via the FastAPI server that serves it
        (`uvicorn api.main:app` -> http://localhost:8000), never a separate dev server -->
   <div id="origin-banner" class="origin-banner hidden">
     ⚠️ Can't reach the Reflecta API from <code id="origin-here"></code>.
-    This page must be opened through the backend itself — run
+    This page must be opened through the backend itself - run
     <code>uvicorn api.main:app --reload</code> and open
     <code>http://localhost:8000</code> directly (not a separate dev server or
     double-clicked file).
@@ -38,7 +38,7 @@
     </defs>
   </svg>
 
-  <!-- ═══════════════ true landing page — no sidebar, no app nav ═══════════════ -->
+  <!-- ═══════════════ true landing page - no sidebar, no app nav ═══════════════ -->
   <div id="landing" class="landing">
     <header class="landing-top">
       <div class="brand"><span class="brand-mark">◍</span><span class="brand-name">Reflecta</span></div>
@@ -50,7 +50,7 @@
         <span class="w-badge">reflective learning</span>
         <h1>A quiz that tells you<br/><span class="w-accent">more than a score.</span></h1>
         <p>Most quizzes stop at <em>what</em> you got wrong. Reflecta reads <em>how</em> you
-        answer — your choices, timing, and confidence — and reflects back whether you truly
+        answer - your choices, timing, and confidence - and reflects back whether you truly
         understand, and whether it serves your goal.</p>
         <div class="w-cta-row">
           <button id="welcome-cta" class="btn btn-primary w-cta">
@@ -60,7 +60,7 @@
             <svg class="bi"><use href="#i-help"/></svg> See how it works
           </a>
         </div>
-        <span class="w-cta-note"><svg class="pi"><use href="#i-lock"/></svg> No account needed — anonymous by design</span>
+        <span class="w-cta-note"><svg class="pi"><use href="#i-lock"/></svg> No account needed - anonymous by design</span>
       </div>
 
       <div class="grid features">
@@ -68,13 +68,13 @@
           <span class="f-icon"><svg><use href="#i-brain"/></svg></span>
           <h3>Understanding, not recall</h3>
           <p>The same concept appears reworded. If your accuracy drops on the new phrasing,
-          you're memorizing — and Reflecta will tell you.</p>
+          you're memorizing - and Reflecta will tell you.</p>
         </article>
         <article class="card feature">
           <span class="f-icon"><svg><use href="#i-scale"/></svg></span>
           <h3>Calibrated confidence</h3>
           <p>You rate your confidence on every answer. Reflecta measures how well it matches
-          reality — and flags over- or under-confidence.</p>
+          reality - and flags over- or under-confidence.</p>
         </article>
         <article class="card feature">
           <span class="f-icon"><svg><use href="#i-target"/></svg></span>
@@ -87,12 +87,12 @@
       <div class="card how" id="how-it-works">
         <h3>How it works</h3>
         <ol class="steps">
-          <li><span class="step-n">1</span><div><b>Set your goal</b><small>e.g. "data science interview" — this anchors the whole analysis.</small></div></li>
+          <li><span class="step-n">1</span><div><b>Set your goal</b><small>e.g. "data science interview" - this anchors the whole analysis.</small></div></li>
           <li><span class="step-n">2</span><div><b>Take a short quiz</b><small>8–18 questions. Answer honestly and rate your confidence each time.</small></div></li>
           <li><span class="step-n">3</span><div><b>Read your reflection</b><small>readiness, understanding vs memorization, calibration, and what to do next.</small></div></li>
         </ol>
         <p class="w-privacy"><svg class="pi"><use href="#i-lock"/></svg>
-        Anonymous by design — no name, email, or IP. You can delete your responses anytime.</p>
+        Anonymous by design - no name, email, or IP. You can delete your responses anytime.</p>
       </div>
     </main>
 
@@ -103,7 +103,7 @@
     </footer>
   </div>
 
-  <!-- ═══════════════ app shell — sidebar + screens, entered via "Get started" ═══════════════ -->
+  <!-- ═══════════════ app shell - sidebar + screens, entered via "Get started" ═══════════════ -->
   <div class="app hidden" id="app-shell">
     <!-- ───────────── sidebar ───────────── -->
     <aside class="sidebar">
@@ -118,7 +118,6 @@
         <a class="nav-item" data-view="reports"><svg class="ni"><use href="#i-chart"/></svg>Reports</a>
         <div class="nav-sep"></div>
         <a class="nav-item" data-view="privacy"><svg class="ni"><use href="#i-lock"/></svg>Privacy</a>
-        <a class="nav-item" href="/docs" target="_blank"><svg class="ni"><use href="#i-help"/></svg>API &amp; Help</a>
       </nav>
 
       <div class="side-user">
@@ -210,13 +209,13 @@
                 <h3>Understanding</h3>
                 <div class="big" id="memo-val">–</div>
                 <span class="tag" id="memo-tag"></span>
-                <p class="muted">accuracy drop when reworded — high = memorizing</p>
+                <p class="muted">accuracy drop when reworded - high = memorizing</p>
               </article>
               <article class="card stat">
                 <h3>Calibration</h3>
                 <div class="big" id="ece-val">–</div>
                 <span class="tag" id="ece-tag"></span>
-                <p class="muted">confidence vs reality — high = mis-calibrated</p>
+                <p class="muted">confidence vs reality - high = mis-calibrated</p>
               </article>
               <article class="card timing">
                 <h3>How you answer</h3>
@@ -227,7 +226,7 @@
             <article class="card gaps">
               <h3>Highest-leverage gaps</h3>
               <p class="muted">Mastery is difficulty-adjusted (IRT) and deliberately conservative
-              with only a few questions per concept — it can sit below your raw score. Concepts
+              with only a few questions per concept - it can sit below your raw score. Concepts
               already meeting their target aren't listed.</p>
               <div id="gap-list"></div>
             </article>
@@ -263,7 +262,7 @@
             </div>
 
             <div class="card">
-              <h3><svg class="hi"><use href="#i-pulse"/></svg> Model health — is anything rotting?</h3>
+              <h3><svg class="hi"><use href="#i-pulse"/></svg> Model health - is anything rotting?</h3>
               <p class="muted">Models decay as the world (and your learners) change. Each artifact is
               aged against retrain thresholds; live drift compares recent sessions to older ones.</p>
               <div class="table-wrap"><table id="rep-artifacts">
@@ -284,24 +283,24 @@
             <div class="card">
               <h3><svg class="hi"><use href="#i-help"/></svg> How this website works</h3>
               <ol class="steps">
-                <li><span class="step-n">1</span><div><b>Quiz engine</b><small>Questions are served with answers kept on the server; options are shuffled. Some questions are reworded twins of the same concept — that's deliberate.</small></div></li>
+                <li><span class="step-n">1</span><div><b>Quiz engine</b><small>Questions are served with answers kept on the server; options are shuffled. Some questions are reworded twins of the same concept - that's deliberate.</small></div></li>
                 <li><span class="step-n">2</span><div><b>Behavior signals</b><small>Your choices, response times, and confidence become signals: memorization vs understanding, calibration (confidence vs reality), and answer-style profile.</small></div></li>
-                <li><span class="step-n">3</span><div><b>Mastery via IRT</b><small>An Item-Response-Theory model estimates your per-concept ability from your answers, weighted by question difficulty — fairer than raw accuracy.</small></div></li>
+                <li><span class="step-n">3</span><div><b>Mastery via IRT</b><small>An Item-Response-Theory model estimates your per-concept ability from your answers, weighted by question difficulty - fairer than raw accuracy.</small></div></li>
                 <li><span class="step-n">4</span><div><b>Intent → gap</b><small>Your goal decomposes into concept requirements; your mastery is projected onto them, and the shortfall becomes your prioritized gap list.</small></div></li>
-                <li><span class="step-n">5</span><div><b>Reflection</b><small>Deterministic rules turn those numbers into specific advice — no black box between the signals and what you read.</small></div></li>
+                <li><span class="step-n">5</span><div><b>Reflection</b><small>Deterministic rules turn those numbers into specific advice - no black box between the signals and what you read.</small></div></li>
                 <li><span class="step-n">6</span><div><b>Offline research</b><small>The knowledge-tracing models on this page (IRT, BKT, SAKT) are trained on 525k real learner interactions (ASSISTments) and tracked with MLflow.</small></div></li>
               </ol>
             </div>
           </section>
 
-          <!-- screen: privacy (in-app, sidebar stays active — privacy.html remains as
+          <!-- screen: privacy (in-app, sidebar stays active - privacy.html remains as
                a standalone shareable page for direct links / no-JS contexts) -->
           <section id="screen-privacy" class="screen hidden">
             <div class="card">
               <h2 class="form-title">Privacy, in plain words</h2>
               <p class="muted">A short, honest summary. Full notice: <code>PRIVACY.md</code> in the repository.</p>
 
-              <h3 class="p-subhead">What we store — only with your consent</h3>
+              <h3 class="p-subhead">What we store - only with your consent</h3>
               <ul class="p-list">
                 <li>The questions shown and the option you chose</li>
                 <li>Whether each answer was correct</li>
@@ -313,18 +312,18 @@
               <ul class="p-list">
                 <li>No name, email, phone, or account</li>
                 <li>No IP address stored with your session</li>
-                <li>Your session is an <b>opaque random id</b> — not linked to who you are</li>
+                <li>Your session is an <b>opaque random id</b> - not linked to who you are</li>
               </ul>
 
               <h3 class="p-subhead">Your control</h3>
               <ul class="p-list">
                 <li>Data is used only to generate and improve your reflection</li>
                 <li>Sessions auto-delete after the retention window</li>
-                <li>You can delete a session anytime (right to erasure) — see the button on your Reflection page</li>
+                <li>You can delete a session anytime (right to erasure) - see the button on your Reflection page</li>
               </ul>
 
               <p class="muted" style="margin-top:16px">Deploying to under-age learners? Parental consent and
-              stricter retention are required — see the full notice.</p>
+              stricter retention are required - see the full notice.</p>
             </div>
           </section>
         </div>
