@@ -12,6 +12,20 @@ from pathlib import Path
 # repo root = two levels up from this file (src/reflecta/config.py -> repo/)
 ROOT = Path(__file__).resolve().parents[2]
 
+# Load .env into the real process environment BEFORE any os.getenv() call below runs —
+# every setting here is read as a dataclass field default, which Python evaluates once
+# at class-definition time (import time), not at Config() instantiation. If dotenv loads
+# any later than this, .env is silently ignored and every field falls back to its
+# hardcoded default — this bit us in practice with ANTHROPIC_API_KEY (read directly via
+# os.getenv in generation.py, at call time, so it's just as exposed to the same ordering
+# bug if python-dotenv hasn't already loaded .env by the time that module is imported).
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(ROOT / ".env")
+except ImportError:
+    pass  # python-dotenv not installed: fall back to real environment variables only
+
 
 def _env_bool(name: str, default: bool) -> bool:
     return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}

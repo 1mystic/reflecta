@@ -47,6 +47,7 @@ from api.schemas import (
     AnalyzeResponse,
     GapItemOut,
     GradedItem,
+    LearnerHistoryOut,
     QuizStartRequest,
     QuizStartResponse,
     QuizSubmitRequest,
@@ -77,6 +78,8 @@ _SESSION_KEYS: dict[str, dict] = {}
 _SESSION_GOAL: dict[str, str] = {}
 # goal-specific concept requirements for sessions on generated topic banks
 _SESSION_REQS: dict[str, list] = {}
+# opaque client-generated learner id for this session, if the client sent one
+_SESSION_LEARNER: dict[str, str] = {}
 
 # lightweight in-memory per-IP rate limiter (swap for Redis in multi-worker prod)
 _HITS: dict[str, deque] = defaultdict(deque)
@@ -120,10 +123,21 @@ async def observability(request: Request, call_next):
 
 # ---------- quiz delivery: curated bank, or Claude-generated for novel topics ----------
 def _goal_is_curated(goal: str) -> bool:
-    """True when the goal maps to the curated bank's concept library (not the generic
-    fallback), so the hand-authored questions actually cover it."""
+    """True only when the goal's resolved concepts actually exist in the curated question
+    bank's content — not just in the resolver's static library.
+
+    A goal can be *listed* in IntentGapMapper's curated library (a set of concept
+    requirements) without any matching *questions* existing in data/question_bank.json —
+    e.g. "neet biology" has requirements defined but the bank only contains data-science
+    questions. Trusting the resolver alone would silently serve mismatched questions
+    (data-science items) scored against unrelated gap requirements (biology concepts),
+    producing a nonsensical reflection. Require actual overlap with the bank's content.
+    """
     reqs = IntentGapMapper._default_resolver(goal)
-    return not (len(reqs) == 1 and reqs[0].concept == "general")
+    if len(reqs) == 1 and reqs[0].concept == "general":
+        return False
+    bank_concepts = _bank.concepts()
+    return any(r.concept in bank_concepts for r in reqs)
 
 
 def _delivery_for_goal(goal: str, n: int):
@@ -184,6 +198,26 @@ def _analyze(goal: str, df: pd.DataFrame, requirements: list | None = None) -> A
     )
 
 
+def _learner_history(learner_id: str) -> LearnerHistoryOut | None:
+    """Readiness/score trend across this opaque learner's past sessions — the payoff of
+    persisting `learner_id`: mastery signal that accumulates instead of resetting cold
+    every quiz. Returns None if this is the learner's first stored session."""
+    sessions = _store.for_learner(learner_id)
+    if not sessions:
+        return None
+    readiness, scores = [], []
+    for s in sessions:
+        r = (s.get("analysis") or {}).get("readiness")
+        sc = s.get("score")
+        if r is not None and sc is not None:
+            readiness.append(float(r))
+            scores.append(float(sc))
+    if not readiness:
+        return None
+    return LearnerHistoryOut(n_sessions=len(readiness),
+                             readiness_trend=readiness, score_trend=scores)
+
+
 # ---------- ops endpoints ----------
 @app.get("/api/health")
 def health() -> dict:
@@ -192,11 +226,18 @@ def health() -> dict:
 
 @app.get("/api/ready")
 def ready() -> dict:
+    from reflecta import generation
+
     ok = len(_bank._raw) > 0
     if not ok:
         raise HTTPException(status_code=503, detail="question bank not loaded")
+    # only report goals with real matching bank content (see _goal_is_curated) — the
+    # resolver's library alone is not a promise that questions exist for a name
+    verified_goals = [g for g in IntentGapMapper.curated_goal_names() if _goal_is_curated(g)]
     return {"status": "ready", "questions": len(_bank._raw),
-            "sessions_stored": _store.count()}
+            "sessions_stored": _store.count(),
+            "curated_goals": sorted(verified_goals),
+            "open_topics_enabled": generation.is_available()}
 
 
 @app.get("/api/model/info")
@@ -233,14 +274,20 @@ def quiz_start(req: QuizStartRequest) -> QuizStartResponse:
                             detail="consent required to store anonymous responses")
     delivery, requirements = _delivery_for_goal(req.goal, req.n_questions)
     session_id = uuid.uuid4().hex[:12]
+    # the learner id is opaque and client-generated (localStorage); if the client has
+    # none yet (first visit, or declined persistence) mint one and hand it back —
+    # it is never linked to a name/email/IP, only used to group anonymous sessions
+    # so mastery can be shown to accumulate over repeat quizzes.
+    learner_id = req.learner_id or uuid.uuid4().hex
     _SESSION_KEYS[session_id] = delivery.key
     _SESSION_GOAL[session_id] = req.goal
+    _SESSION_LEARNER[session_id] = learner_id
     if requirements:
         _SESSION_REQS[session_id] = requirements
     log.info("quiz_started", extra={"session_id": session_id, "n": len(delivery.questions),
                                     "generated": requirements is not None})
     return QuizStartResponse(
-        session_id=session_id, goal=req.goal,
+        session_id=session_id, goal=req.goal, learner_id=learner_id,
         questions=[ServedQuestionOut(**q.__dict__) for q in delivery.questions],
     )
 
@@ -269,18 +316,23 @@ def quiz_submit(req: QuizSubmitRequest) -> QuizSubmitResponse:
     df = pd.DataFrame(rows)
     analysis = _analyze(goal, df, requirements=_SESSION_REQS.get(req.session_id))
     score = float(df["correct"].mean())
+    learner_id = _SESSION_LEARNER.get(req.session_id)
 
     _store.save(req.session_id, {
         "session_id": req.session_id,
+        "learner_id": learner_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "goal": goal, "score": score, "interactions": rows,
         "analysis": analysis.model_dump(),
     })
+    history = _learner_history(learner_id) if learner_id else None
+
     _SESSION_KEYS.pop(req.session_id, None)
     _SESSION_GOAL.pop(req.session_id, None)
     _SESSION_REQS.pop(req.session_id, None)
+    _SESSION_LEARNER.pop(req.session_id, None)
     return QuizSubmitResponse(session_id=req.session_id, score=score,
-                              graded=graded, analysis=analysis)
+                              graded=graded, analysis=analysis, history=history)
 
 
 @app.delete("/api/session/{session_id}")

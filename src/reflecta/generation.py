@@ -39,7 +39,24 @@ GENERATED_DIR = CONFIG.paths.data / "generated_banks"
 
 _SYSTEM = """You are a psychometric item writer for a metacognitive learning platform.
 You write diagnostic multiple-choice questions whose WRONG options encode specific,
-common misconceptions — not random noise."""
+common misconceptions — not random noise.
+
+Hard constraints on every question you write:
+- Exactly ONE option is unambiguously correct. If a domain expert could reasonably argue
+  for two options, rewrite the question or the options until only one survives scrutiny —
+  this platform previously shipped a dataset where ~25% of a human-authored answer key
+  was wrong or disputed, and that failure is exactly what you must not repeat.
+- Never use "all of the above" / "none of the above" — they are not real distractors and
+  make the item impossible to grade against a single misconception.
+- Do not make the correct option trivially longer, more detailed, or more hedged than the
+  distractors — this exact shortcut let length alone predict the correct answer ~40% of the
+  time in a prior dataset this platform was built from; keep option lengths comparable.
+- Base questions on durable facts, not anything that could become stale or contested
+  (avoid current events, recent statistics, live prices, or anything version/date-specific).
+- Avoid options that differ only in wording, not in substance — a well-informed learner
+  who guesses the *concept* correctly should get the *letter* correctly.
+- Write in accessible, unambiguous language — a non-native speaker should be able to parse
+  the grammar even if they don't know the subject matter."""
 
 _PROMPT_TEMPLATE = """Create a diagnostic MCQ bank for the learning goal: "{goal}".
 
@@ -47,14 +64,19 @@ Requirements:
 1. Choose 3-5 core concepts that matter most for this goal (snake_case ids).
 2. Write {n} questions total, spread across the concepts.
 3. Each question: a clear stem, exactly 4 options, `correct` = 0-based index of the right one.
-4. Wrong options must each encode a plausible, *specific* misconception.
+4. Wrong options must each encode a plausible, *specific* misconception — not a random
+   unrelated fact and not an obviously-wrong throwaway option.
 5. For at least {n_twins} concepts, include a REWORDED TWIN: a second question testing the
    exact same fact with completely different phrasing. Twins share the same paraphrase_group;
    the original has is_reworded=0, the twin is_reworded=1. Twins may reorder their options.
 6. difficulty: 0.2 (easy) to 0.8 (hard), your honest estimate.
 7. concepts: for each concept, its importance (0-1) and target mastery (0-1) for someone
    pursuing this goal.
-8. explanation: one sentence on why the correct option is right."""
+8. explanation: one sentence on why the correct option is right — specific enough that a
+   learner who reads it understands *why*, not just *that*.
+
+Before finalizing, silently re-check each question against the hard constraints above.
+If a question does not clearly satisfy all of them, rewrite it rather than including it."""
 
 
 # ---- structured output schema (validated by the API via messages.parse) ----

@@ -1,8 +1,42 @@
 // Reflecta — live quiz flow. Talks to the FastAPI backend.
-const API = (location.port === "8000" || location.protocol === "file:")
-  ? "http://localhost:8000" : "";
+//
+// This frontend is a static SPA served BY the same FastAPI process it talks to
+// (see api/main.py's StaticFiles mount) — that's why there's no build step and no
+// separate frontend server: uvicorn/gunicorn on :8000 serves both the API and this
+// file. The correct base URL is therefore always same-origin. The one exception is
+// opening this file directly (`file://`), e.g. while editing — there is no "origin"
+// to be same as, so fall back to localhost:8000 explicitly.
+//
+// If you *do* run this file from a separate dev server (a bundler, VS Code Live
+// Server, etc.) on a different port, requests will silently go to that dev server
+// instead of the API and fail (commonly as a 404 or 405, since most static dev
+// servers don't implement POST) — always open http://localhost:8000 directly, or set
+// window.REFLECTA_API_BASE before this script loads if you truly need to override it.
+const API = window.REFLECTA_API_BASE ?? (location.protocol === "file:" ? "http://localhost:8000" : "");
 const $ = (id) => document.getElementById(id);
 const pct = (x) => (x == null ? "–" : Math.round(x * 100) + "%");
+
+// Opaque, client-only learner id (server-minted UUID, no PII) — persisted so mastery
+// can be shown to accumulate across repeat quizzes. "Delete my responses" (below) also
+// clears it, so erasure means forgetting the device link too, not just one session.
+const LEARNER_KEY = "reflecta_learner_id";
+function getLearnerId() { return localStorage.getItem(LEARNER_KEY); }
+function setLearnerId(id) { if (id) localStorage.setItem(LEARNER_KEY, id); }
+function clearLearnerId() { localStorage.removeItem(LEARNER_KEY); }
+
+// FastAPI error bodies vary in shape: HTTPException -> {detail: "string"};
+// Pydantic 422 validation errors -> {detail: [{loc, msg, type}, ...]}. Normalize both
+// to a readable string instead of letting `[object Object]` reach the user.
+async function readApiError(res) {
+  let body;
+  try { body = await res.json(); } catch { return `API ${res.status}`; }
+  const d = body && body.detail;
+  if (typeof d === "string") return d;
+  if (Array.isArray(d)) {
+    return d.map((e) => `${(e.loc || []).slice(-1)[0] || "field"}: ${e.msg}`).join("; ");
+  }
+  return `API ${res.status}`;
+}
 
 // [text, tone] where tone in {good, mid, low} drives the tag colour
 function setTag(id, spec) {
@@ -24,13 +58,28 @@ let state = {
   answers: {}, selected: null, questionStart: 0,
 };
 
-const PAGE_TITLE = { welcome: "Home", start: "Take Quiz", quiz: "Quiz",
+const PAGE_TITLE = { start: "Take Quiz", quiz: "Quiz",
                      results: "Your Reflection", reports: "Reports" };
-const SCREENS = ["welcome", "start", "quiz", "results", "reports"];
+const SCREENS = ["start", "quiz", "results", "reports"];
+
+// The true marketing landing page (#landing, no sidebar) and the app shell
+// (#app-shell, sidebar + screens) are separate top-level views — "Get started" enters
+// the app shell; the sidebar's logo returns to the landing page.
+function enterApp() {
+  $("landing").classList.add("hidden");
+  $("app-shell").classList.remove("hidden");
+  show("start");
+}
+
+function showLanding() {
+  $("app-shell").classList.add("hidden");
+  $("landing").classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 
 function show(screen) {
   SCREENS.forEach((s) => $(`screen-${s}`).classList.toggle("hidden", s !== screen));
-  document.getElementById("page-title").textContent = PAGE_TITLE[screen] || "Home";
+  document.getElementById("page-title").textContent = PAGE_TITLE[screen] || "Reflecta";
   const view = screen === "quiz" ? "start" : screen;
   document.querySelectorAll(".nav-item").forEach((el) => el.classList.remove("active"));
   document.querySelector('.nav-item[data-view="' + view + '"]')?.classList.add("active");
@@ -49,14 +98,15 @@ async function startQuiz() {
         goal: $("goal").value.trim() || "data science interview",
         n_questions: parseInt($("nq").value, 10),
         consent: $("consent").checked,
+        learner_id: getLearnerId() || undefined,
       }),
     });
     if (!res.ok) {
       // surface the server's message (e.g. how to enable open-topic generation)
-      const detail = (await res.json().catch(() => ({})))?.detail;
-      throw new Error(detail || `API ${res.status}`);
+      throw new Error(await readApiError(res));
     }
     const data = await res.json();
+    setLearnerId(data.learner_id);
     state = { sessionId: data.session_id, goal: data.goal, questions: data.questions,
               idx: 0, answers: {}, selected: null, questionStart: 0 };
     show("quiz");
@@ -125,14 +175,41 @@ async function submitQuiz() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: state.sessionId, answers: Object.values(state.answers) }),
     });
-    if (!res.ok) throw new Error(`API ${res.status}`);
+    if (!res.ok) throw new Error(await readApiError(res));
     renderResults(await res.json());
     hasReflection = true;
     show("results");
   } catch (e) {
-    alert("Submission failed.\n\n" + e);
+    alert("Submission failed.\n\n" + (e.message || e));
     btn.disabled = false;
   }
+}
+
+// ── results: growth trend across this device's past quizzes ──
+function renderGrowth(history) {
+  const card = $("growth-card");
+  if (!history || history.n_sessions < 2) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+
+  const first = history.readiness_trend[0];
+  const last = history.readiness_trend[history.readiness_trend.length - 1];
+  const delta = last - first;
+  const dir = delta > 0.01 ? "up" : delta < -0.01 ? "down" : "flat";
+  const word = dir === "up" ? "climbed" : dir === "down" ? "dipped" : "held steady";
+  $("growth-summary").textContent =
+    `Across ${history.n_sessions} quizzes, your goal readiness has ${word} `
+    + `(${pct(first)} → ${pct(last)}).`;
+
+  const track = $("growth-track");
+  track.innerHTML = "";
+  history.readiness_trend.forEach((r, i) => {
+    const isLast = i === history.readiness_trend.length - 1;
+    const bar = document.createElement("div");
+    bar.className = "growth-bar" + (isLast ? " current" : "");
+    bar.style.height = Math.max(6, Math.round(r * 64)) + "px";
+    bar.innerHTML = isLast ? `<span>${pct(r)}</span>` : "";
+    track.appendChild(bar);
+  });
 }
 
 // ── results ──
@@ -140,6 +217,7 @@ function renderResults(d) {
   const a = d.analysis;
   $("score-val").textContent = pct(d.score);
   $("result-goal").textContent = `toward “${a.goal}”`;
+  renderGrowth(d.history);
 
   const deg = Math.round((a.readiness || 0) * 360);
   $("ring").style.background = `conic-gradient(var(--brown) ${deg}deg, var(--line) ${deg}deg)`;
@@ -224,7 +302,8 @@ document.querySelectorAll(".nav-item[data-view]").forEach((el) => {
     show(v);
   });
 });
-$("welcome-cta").addEventListener("click", () => show("start"));
+$("welcome-cta").addEventListener("click", enterApp);
+$("brand-home").addEventListener("click", showLanding);
 
 // ── reports / monitoring ──
 async function loadReports() {
@@ -288,12 +367,33 @@ $("next-btn").addEventListener("click", recordAndNext);
 $("confidence").addEventListener("input", (e) => { $("conf-val").textContent = e.target.value + "%"; });
 $("restart-btn").addEventListener("click", () => show("start"));
 
-// right-to-erasure: delete this session's stored responses
+// right-to-erasure: delete this session's stored responses AND forget this device's
+// growth-tracking id, so nothing links future quizzes back to what's being deleted now
 $("delete-btn").addEventListener("click", async () => {
   if (!state.sessionId) return;
-  if (!confirm("Delete your anonymous responses for this session?")) return;
+  if (!confirm("Delete your anonymous responses for this session and forget this device?")) return;
   try {
     const res = await fetch(`${API}/api/session/${state.sessionId}`, { method: "DELETE" });
+    clearLearnerId();
     alert(res.ok ? "Your responses were deleted." : "Nothing to delete (already removed).");
   } catch (e) { alert("Delete failed.\n\n" + e); }
 });
+
+// tell the learner up front which goals are guaranteed to work, and whether open
+// (Claude-generated) topics are enabled on this server — avoids the confusing case of
+// typing a topic that silently 503s because no ANTHROPIC_API_KEY is configured
+(async function initGoalHint() {
+  const hint = $("goal-hint");
+  if (!hint) return;
+  try {
+    const r = await fetch(`${API}/api/ready`);
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    const curated = (d.curated_goals || []).map((g) => `“${g}”`).join(", ");
+    hint.textContent = d.open_topics_enabled
+      ? `Any topic works — built-in: ${curated || "none"}. Anything else is generated on the fly.`
+      : `Open-topic generation is off on this server — built-in goals only for now: ${curated || "data science interview"}.`;
+  } catch {
+    hint.textContent = "";
+  }
+})();

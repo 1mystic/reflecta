@@ -438,6 +438,9 @@ Short ADR-style entries — *the "why", so future-you doesn't relitigate them.*
 | 7 | Group-aware split everywhere | Avoids the duplicate-leakage trap the legacy project fell into. |
 | 8 | Consent gate + anonymous sessions | Education data is sensitive; privacy-by-design from day one. |
 | 9 | Curated question bank + reworded twins | The memorization signal needs paraphrase pairs that public content sets don't provide. |
+| 10 | `.env` auto-loaded via `python-dotenv`, at the top of `config.py` before any `os.getenv()` default | Settings are read as dataclass field defaults, evaluated once at module import time — loading `.env` any later than that silently no-ops every field, including `ANTHROPIC_API_KEY` read at call time elsewhere. Caught in practice: a correctly-set `.env` key was still reported as "disabled" until this fix. |
+| 11 | Curated-vs-generated goal gate checks **bank content overlap**, not just the resolver's static library | A goal name can exist in `IntentGapMapper`'s requirement library without matching questions existing in `question_bank.json` (e.g. "neet biology" was listed with zero biology questions in the bank). Trusting the library alone silently served mismatched questions scored against unrelated gap requirements — now `_goal_is_curated()` requires the goal's concepts to actually appear in `_bank.concepts()`. |
+| 12 | Frontend API base URL is always same-origin, except `file://` | The frontend is served *by* the same FastAPI process, not a separate dev server — a port-based heuristic (`location.port === "8000"`) misfires whenever the file is opened through any other local server, silently misrouting requests (commonly surfacing as 404/405). |
 
 ---
 

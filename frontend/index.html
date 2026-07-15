@@ -27,17 +27,79 @@
     </defs>
   </svg>
 
-  <div class="app">
-    <!-- ───────────── sidebar ───────────── -->
-    <aside class="sidebar">
-      <div class="brand">
-        <span class="brand-mark">◍</span>
-        <span class="brand-name">Reflecta</span>
+  <!-- ═══════════════ true landing page — no sidebar, no app nav ═══════════════ -->
+  <div id="landing" class="landing">
+    <header class="landing-top">
+      <div class="brand"><span class="brand-mark">◍</span><span class="brand-name">Reflecta</span></div>
+      <a class="landing-ghost" href="/privacy.html">Privacy</a>
+    </header>
+
+    <main class="landing-main">
+      <div class="card welcome-hero">
+        <span class="w-badge">reflective learning</span>
+        <h1>A quiz that tells you<br/><span class="w-accent">more than a score.</span></h1>
+        <p>Most quizzes stop at <em>what</em> you got wrong. Reflecta reads <em>how</em> you
+        answer — your choices, timing, and confidence — and reflects back whether you truly
+        understand, and whether it serves your goal.</p>
+        <div class="w-cta-row">
+          <button id="welcome-cta" class="btn btn-primary w-cta">
+            Get started <svg class="bi"><use href="#i-arrow"/></svg>
+          </button>
+          <span class="w-cta-note"><svg class="pi"><use href="#i-lock"/></svg> No account needed — anonymous by design</span>
+        </div>
       </div>
 
+      <div class="grid features">
+        <article class="card feature">
+          <span class="f-icon"><svg><use href="#i-brain"/></svg></span>
+          <h3>Understanding, not recall</h3>
+          <p>The same concept appears reworded. If your accuracy drops on the new phrasing,
+          you're memorizing — and Reflecta will tell you.</p>
+        </article>
+        <article class="card feature">
+          <span class="f-icon"><svg><use href="#i-scale"/></svg></span>
+          <h3>Calibrated confidence</h3>
+          <p>You rate your confidence on every answer. Reflecta measures how well it matches
+          reality — and flags over- or under-confidence.</p>
+        </article>
+        <article class="card feature">
+          <span class="f-icon"><svg><use href="#i-target"/></svg></span>
+          <h3>Your goal, your gaps</h3>
+          <p>Tell it why you're learning. It maps your mastery onto that goal and shows the
+          highest-leverage gap to work on next.</p>
+        </article>
+      </div>
+
+      <div class="card how">
+        <h3>How it works</h3>
+        <ol class="steps">
+          <li><span class="step-n">1</span><div><b>Set your goal</b><small>e.g. "data science interview" — this anchors the whole analysis.</small></div></li>
+          <li><span class="step-n">2</span><div><b>Take a short quiz</b><small>8–18 questions. Answer honestly and rate your confidence each time.</small></div></li>
+          <li><span class="step-n">3</span><div><b>Read your reflection</b><small>readiness, understanding vs memorization, calibration, and what to do next.</small></div></li>
+        </ol>
+        <p class="w-privacy"><svg class="pi"><use href="#i-lock"/></svg>
+        Anonymous by design — no name, email, or IP. You can delete your responses anytime.</p>
+      </div>
+    </main>
+
+    <footer class="landing-foot">
+      <span>Reflecta · free &amp; local ·
+        <a href="https://github.com/1mystic/reflecta" target="_blank" rel="noopener">GitHub</a> ·
+        <a href="/docs" target="_blank">API docs</a></span>
+    </footer>
+  </div>
+
+  <!-- ═══════════════ app shell — sidebar + screens, entered via "Get started" ═══════════════ -->
+  <div class="app hidden" id="app-shell">
+    <!-- ───────────── sidebar ───────────── -->
+    <aside class="sidebar">
+      <button class="brand brand-btn" id="brand-home" type="button" title="Back to landing page">
+        <span class="brand-mark">◍</span>
+        <span class="brand-name">Reflecta</span>
+      </button>
+
       <nav class="nav">
-        <a class="nav-item active" data-view="welcome"><svg class="ni"><use href="#i-home"/></svg>Home</a>
-        <a class="nav-item" data-view="start"><svg class="ni"><use href="#i-quiz"/></svg>Take Quiz</a>
+        <a class="nav-item active" data-view="start"><svg class="ni"><use href="#i-quiz"/></svg>Take Quiz</a>
         <a class="nav-item" data-view="results"><svg class="ni"><use href="#i-leaf"/></svg>Reflection</a>
         <a class="nav-item" data-view="reports"><svg class="ni"><use href="#i-chart"/></svg>Reports</a>
         <div class="nav-sep"></div>
@@ -54,62 +116,17 @@
     <!-- ───────────── main ───────────── -->
     <div class="main">
       <div class="frame">
-        <header class="page-head"><h1 id="page-title">Home</h1></header>
+        <header class="page-head"><h1 id="page-title">Take Quiz</h1></header>
 
         <div class="content">
-          <!-- screen: welcome / landing -->
-          <section id="screen-welcome" class="screen">
-            <div class="card welcome-hero">
-              <span class="w-badge">reflective learning</span>
-              <h2>A quiz that tells you<br/><span class="w-accent">more than a score.</span></h2>
-              <p>Most quizzes stop at <em>what</em> you got wrong. Reflecta reads <em>how</em> you
-              answer — your choices, timing, and confidence — and reflects back whether you truly
-              understand, and whether it serves your goal.</p>
-              <button id="welcome-cta" class="btn btn-primary w-cta">
-                Get started <svg class="bi"><use href="#i-arrow"/></svg>
-              </button>
-            </div>
-
-            <div class="grid features">
-              <article class="card feature">
-                <span class="f-icon"><svg><use href="#i-brain"/></svg></span>
-                <h3>Understanding, not recall</h3>
-                <p>The same concept appears reworded. If your accuracy drops on the new phrasing,
-                you're memorizing — and Reflecta will tell you.</p>
-              </article>
-              <article class="card feature">
-                <span class="f-icon"><svg><use href="#i-scale"/></svg></span>
-                <h3>Calibrated confidence</h3>
-                <p>You rate your confidence on every answer. Reflecta measures how well it matches
-                reality — and flags over- or under-confidence.</p>
-              </article>
-              <article class="card feature">
-                <span class="f-icon"><svg><use href="#i-target"/></svg></span>
-                <h3>Your goal, your gaps</h3>
-                <p>Tell it why you're learning. It maps your mastery onto that goal and shows the
-                highest-leverage gap to work on next.</p>
-              </article>
-            </div>
-
-            <div class="card how">
-              <h3>How it works</h3>
-              <ol class="steps">
-                <li><span class="step-n">1</span><div><b>Set your goal</b><small>e.g. "data science interview" — this anchors the whole analysis.</small></div></li>
-                <li><span class="step-n">2</span><div><b>Take a short quiz</b><small>8–18 questions. Answer honestly and rate your confidence each time.</small></div></li>
-                <li><span class="step-n">3</span><div><b>Read your reflection</b><small>readiness, understanding vs memorization, calibration, and what to do next.</small></div></li>
-              </ol>
-              <p class="w-privacy"><svg class="pi"><use href="#i-lock"/></svg>
-              Anonymous by design — no name, email, or IP. You can delete your responses anytime.</p>
-            </div>
-          </section>
-
           <!-- screen: start (quiz setup) -->
           <section id="screen-start" class="screen hidden">
             <div class="card form-card">
               <h2 class="form-title">Set up your quiz</h2>
               <label class="field-label" for="goal">Why are you learning?</label>
               <input id="goal" type="text" value="data science interview"
-                     placeholder="e.g. data science interview, NEET biology" />
+                     placeholder="e.g. data science interview" />
+              <p class="muted hint-note" id="goal-hint"></p>
 
               <label class="field-label" for="nq">How many questions?</label>
               <div class="seg" id="nq-seg">
@@ -157,6 +174,12 @@
                 <h2 class="result-title">Your reflection</h2>
                 <p class="muted" id="result-goal"></p>
               </div>
+            </div>
+
+            <div class="card growth hidden" id="growth-card">
+              <h3>Your growth</h3>
+              <p class="muted" id="growth-summary"></p>
+              <div class="growth-track" id="growth-track"></div>
             </div>
 
             <div class="grid">

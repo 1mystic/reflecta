@@ -103,26 +103,38 @@ class IntentGapMapper:
         )
 
     # --- default curated resolver (demo / cold-start) ---
+    # Module-level so it can be introspected (curated_goal_names) without re-parsing a
+    # goal string. NOTE: a name being listed here does NOT guarantee matching questions
+    # exist in any particular question bank — that's a separate, bank-specific check
+    # (see api.main._goal_is_curated, which is what actually gates curated vs. generated).
+    _GOAL_LIBRARY: dict[str, list[ConceptRequirement]] = {
+        "data science interview": [
+            ConceptRequirement("probability", 0.9, 0.85),
+            ConceptRequirement("linear_algebra", 0.7, 0.75),
+            ConceptRequirement("sql", 0.8, 0.8),
+            ConceptRequirement("ml_fundamentals", 1.0, 0.85),
+            ConceptRequirement("trivia_history", 0.05, 0.3),
+        ],
+        "neet biology": [
+            ConceptRequirement("cell_biology", 1.0, 0.9),
+            ConceptRequirement("genetics", 0.9, 0.85),
+            ConceptRequirement("human_physiology", 1.0, 0.9),
+            ConceptRequirement("ecology", 0.6, 0.7),
+        ],
+    }
+
     @staticmethod
     def _default_resolver(goal: str) -> list[ConceptRequirement]:
         g = goal.lower()
-        library: dict[str, list[ConceptRequirement]] = {
-            "data science interview": [
-                ConceptRequirement("probability", 0.9, 0.85),
-                ConceptRequirement("linear_algebra", 0.7, 0.75),
-                ConceptRequirement("sql", 0.8, 0.8),
-                ConceptRequirement("ml_fundamentals", 1.0, 0.85),
-                ConceptRequirement("trivia_history", 0.05, 0.3),
-            ],
-            "neet biology": [
-                ConceptRequirement("cell_biology", 1.0, 0.9),
-                ConceptRequirement("genetics", 0.9, 0.85),
-                ConceptRequirement("human_physiology", 1.0, 0.9),
-                ConceptRequirement("ecology", 0.6, 0.7),
-            ],
-        }
-        for key, reqs in library.items():
+        for key, reqs in IntentGapMapper._GOAL_LIBRARY.items():
             if all(tok in g for tok in key.split()):
                 return reqs
         # generic fallback: single lumped concept
         return [ConceptRequirement("general", 1.0, 0.8)]
+
+    @staticmethod
+    def curated_goal_names() -> list[str]:
+        """All goal names known to the resolver library — callers must still verify
+        matching question-bank content before treating a name as truly servable (a name
+        here is a requirements template, not a promise that questions exist for it)."""
+        return list(IntentGapMapper._GOAL_LIBRARY.keys())
