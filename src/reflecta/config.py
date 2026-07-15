@@ -9,8 +9,14 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# repo root = two levels up from this file (src/reflecta/config.py -> repo/)
-ROOT = Path(__file__).resolve().parents[2]
+# repo root. Historically "two levels up from this file" (src/reflecta/config.py ->
+# repo/), which only holds for an editable/source checkout. A real `pip install
+# reflecta` (non-editable, as the Dockerfile does) copies this file into
+# site-packages/reflecta/config.py instead, so parents[2] resolved to somewhere under
+# the Python install (e.g. /usr/local/lib/python3.12/) and every data path broke in
+# prod. cwd is anchored correctly in both cases: gunicorn/uvicorn/pytest are always
+# invoked from the repo root (Dockerfile sets WORKDIR /app before CMD).
+ROOT = Path.cwd()
 
 # Load .env into the real process environment BEFORE any os.getenv() call below runs —
 # every setting here is read as a dataclass field default, which Python evaluates once
