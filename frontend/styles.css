@@ -21,6 +21,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 body {
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif;
   background: var(--bg);
@@ -99,18 +100,28 @@ body {
 /* full-width on large screens: sections use the available viewport, not a narrow
    fixed column, while inner text (paragraphs, feature copy) keeps its own readable
    max-width so a wide screen doesn't turn into a wall of unbroken text. */
-.landing { min-height: 100vh; display: flex; flex-direction: column; }
+.landing { min-height: 100vh; display: flex; flex-direction: column; position: relative; overflow-x: hidden; }
+
+/* soft decorative depth — subtle, low-opacity blurred shapes behind the hero only */
+.landing::before, .landing::after {
+  content: ""; position: absolute; z-index: 0; border-radius: 50%; filter: blur(70px);
+  opacity: .35; pointer-events: none;
+}
+.landing::before { width: 420px; height: 420px; background: var(--amber); top: -160px; right: -100px; }
+.landing::after { width: 360px; height: 360px; background: var(--sage); top: 280px; left: -140px; opacity: .22; }
+
 .landing-top {
   display: flex; align-items: center; justify-content: space-between;
   padding: 22px 4vw; max-width: 1600px; margin: 0 auto; width: 100%;
+  position: relative; z-index: 1;
 }
 .landing-top .brand { padding: 0; }
-.landing-ghost { color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: none; }
+.landing-ghost { color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: none; transition: color .15s; }
 .landing-ghost:hover { color: var(--brown-deep); }
-.landing-main { flex: 1; max-width: 1400px; margin: 0 auto; width: 100%; padding: 10px 4vw 40px; }
+.landing-main { flex: 1; max-width: 1400px; margin: 0 auto; width: 100%; padding: 10px 4vw 40px; position: relative; z-index: 1; }
 .landing-foot {
   text-align: center; padding: 24px; color: var(--muted); font-size: 13px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line); position: relative; z-index: 1;
 }
 .landing-foot a { color: var(--brown-deep); text-decoration: none; }
 
@@ -120,27 +131,205 @@ body {
 }
 
 /* hero (shared by landing) */
-.welcome-hero { text-align: center; padding: 44px 30px 40px; background: linear-gradient(180deg,#fffdf9,#fbf6ec); }
-.w-badge { display: inline-block; font-size: 12px; font-weight: 700; color: var(--brown-deep); background: var(--brown-soft); padding: 5px 14px; border-radius: 999px; margin-bottom: 16px; }
-.welcome-hero h1, .welcome-hero h2 { margin: 0 0 14px; font-size: clamp(28px, 4.5vw, 40px); line-height: 1.15; letter-spacing: -0.025em; font-weight: 800; }
-.w-accent { color: var(--brown); }
-.welcome-hero p { max-width: 560px; margin: 0 auto; color: var(--muted); font-size: 15.5px; }
-.welcome-hero em { color: var(--ink); font-style: normal; font-weight: 700; }
-.w-cta-row { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 22px; }
-.w-cta { width: auto; padding: 13px 30px; margin-top: 0; display: inline-flex; align-items: center; gap: 10px; }
-.w-cta-note { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+/* ───────────── upgraded welcome-hero ───────────── */
+.welcome-hero {
+  position: relative;
+  text-align: center;
+  padding: 80px 32px 72px;
+  background: radial-gradient(100% 100% at 50% 0%, #ffffff 0%, #FAF6EE 55%, #F4ECE0 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(177, 122, 80, 0.14);
+  box-shadow: 
+    0 1px 3px rgba(120, 95, 55, 0.02),
+    0 12px 36px rgba(120, 95, 55, 0.05),
+    inset 0 1px 0 #ffffff;
+  overflow: hidden;
+  margin-bottom: 36px;
+}
+
+/* Subtle, soft grid background mesh to add an editorial, technical aesthetic */
+.welcome-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(177, 122, 80, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(177, 122, 80, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(circle at 50% 30%, black 50%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle at 50% 30%, black 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.w-badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--brown-deep);
+  background: rgba(240, 231, 216, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 6px 14px 6px 12px;
+  border-radius: 999px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(177, 122, 80, 0.16);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.w-badge:hover {
+  transform: translateY(-1px);
+  border-color: rgba(177, 122, 80, 0.3);
+}
+.w-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sage);
+  box-shadow: 0 0 0 4px rgba(143, 170, 120, 0.2);
+}
+
+.welcome-hero h1, 
+.welcome-hero h2 {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto 18px;
+  max-width: 800px;
+  font-size: clamp(34px, 5.5vw, 50px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.w-accent {
+  color: var(--brown);
+  background: linear-gradient(135deg, var(--brown-deep) 30%, var(--brown) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.welcome-hero p {
+  position: relative;
+  z-index: 1;
+  max-width: 620px;
+  margin: 0 auto;
+  color: #6a6152;
+  font-size: 16.5px;
+  line-height: 1.6;
+  font-weight: 450;
+  text-wrap: balance;
+}
+.welcome-hero em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 700;
+  border-bottom: 2px solid rgba(177, 122, 80, 0.2);
+}
+
+.w-cta-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 34px;
+}
+
+.w-cta-secondary {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 15px 26px; border-radius: 14px; font-size: 15.5px; font-weight: 700;
+  color: var(--brown-deep); background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(177, 122, 80, 0.18); text-decoration: none;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.w-cta-secondary:hover {
+  background: #ffffff; border-color: rgba(177, 122, 80, 0.32); transform: translateY(-1px);
+}
+.w-cta-secondary .bi { width: 17px; height: 17px; }
+
+/* .btn.w-cta (two classes, specificity 0,2,0) deliberately outranks .btn-primary's
+   `width: 100%` (0,1,0) regardless of declaration order in the file — relying on
+   cascade order alone here previously made this button silently stretch full-width
+   whenever .btn-primary was edited to appear later in the stylesheet. */
+.btn.w-cta {
+  width: auto;
+  padding: 15px 36px;
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15.5px;
+  font-weight: 700;
+  border-radius: 14px;
+  border: 1px solid rgba(177, 122, 80, 0.15);
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--brown) 0%, var(--brown-deep) 100%);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 10px 24px rgba(177, 122, 80, 0.25),
+    0 2px 6px rgba(177, 122, 80, 0.12);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.w-cta:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 16px 32px rgba(177, 122, 80, 0.32),
+    0 4px 10px rgba(177, 122, 80, 0.15);
+}
+.w-cta:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 8px 16px rgba(177, 122, 80, 0.18);
+}
+.w-cta .bi {
+  transition: transform 0.2s ease;
+}
+.w-cta:hover .bi {
+  transform: translateX(4px);
+}
+
+.w-cta-note {
+  position: relative; z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-top: 16px;
+}
 .bi { width: 18px; height: 18px; }
 .brand-btn { border: none; background: transparent; cursor: pointer; font-family: inherit; }
 
 .features { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.feature { text-align: left; }
-.f-icon {
-  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 13px;
-  background: var(--brown-soft); color: var(--brown-deep); margin-bottom: 12px;
+.feature {
+  text-align: left; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  border: 1px solid var(--line);
 }
+.feature:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: #e6d9c2; }
+.f-icon {
+  display: grid; place-items: center; width: 46px; height: 46px; border-radius: 13px;
+  background: var(--brown-soft); color: var(--brown-deep); margin-bottom: 14px;
+  transition: background .18s ease, color .18s ease;
+}
+.feature:hover .f-icon { background: var(--brown); color: #fff; }
 .f-icon svg { width: 22px; height: 22px; }
-.feature h3 { margin: 0 0 7px; font-size: 15.5px; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 700; }
-.feature p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.feature h3 { margin: 0 0 8px; font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 700; }
+.feature p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
 
 .how h3 { margin-bottom: 16px; }
 .steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
@@ -154,6 +343,12 @@ body {
 .w-privacy { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; color: var(--muted); font-size: 13px; }
 .pi { width: 15px; height: 15px; flex-shrink: 0; color: var(--brown-deep); }
 .form-title { margin: 0 0 14px; font-size: 19px; }
+
+/* in-app privacy screen */
+.p-subhead { font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--brown-deep); margin: 20px 0 8px; }
+.p-list { margin: 0; padding-left: 20px; }
+.p-list li { margin: 5px 0; font-size: 14.5px; color: var(--ink); }
+.p-list code, .content code { background: var(--line-soft); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
 
 /* form */
 .field-label { display: block; font-size: 13px; font-weight: 700; color: #6f685b; margin: 6px 0 7px; }
@@ -249,13 +444,16 @@ input[type=range] { width: 100%; accent-color: var(--brown); }
 .bar-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
 .bar-row .lbl { width: 96px; color: var(--muted); flex-shrink: 0; }
 .bar-track { flex: 1; height: 9px; border-radius: 6px; background: var(--line-soft); overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 6px; }
+/* .bar-fill/.gap-fill are <span>s (inline by default) sized via an inline `width:%`
+   style set in JS — width has no effect on inline elements, so without `display: block`
+   here the fill silently collapses to a hairline regardless of the JS-computed percent. */
+.bar-fill { display: block; height: 100%; border-radius: 6px; min-width: 3px; transition: width .4s ease; }
 
 .gap-row { margin: 12px 0; }
 .gap-head { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
 .gap-head .concept { font-weight: 700; text-transform: capitalize; }
 .gap-track { height: 11px; border-radius: 7px; background: var(--line-soft); overflow: hidden; }
-.gap-fill { height: 100%; border-radius: 7px; background: var(--amber); }
+.gap-fill { display: block; height: 100%; border-radius: 7px; background: var(--amber); min-width: 3px; transition: width .4s ease; }
 
 /* interpretation tags */
 .tag { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; margin: 8px 0 2px; }
@@ -319,3 +517,22 @@ tr:last-child td { border-bottom: none; }
   .sidebar { display: none; }
   .content, .page-head { padding-left: 18px; padding-right: 18px; }
 }
+
+@media (max-width: 640px) {
+  .landing-top { padding: 16px 20px; }
+  .landing-main { padding: 4px 16px 32px; }
+  .welcome-hero { padding: 40px 20px 34px; border-radius: 16px; }
+  .welcome-hero p { font-size: 14.5px; }
+  .btn.w-cta { width: 100%; justify-content: center; padding: 15px 20px; }
+  .w-cta-row { width: 100%; flex-direction: column; }
+  .w-cta-secondary { width: 100%; justify-content: center; }
+  .how { padding: 20px !important; }
+  .landing::before, .landing::after { display: none; } /* avoid overflow/clutter on small viewports */
+}
+
+/* custom scrollbar — thin, palette-matched track/thumb, works in Chromium/WebKit and Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--brown-soft) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--brown-soft); border-radius: 999px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--brown); }

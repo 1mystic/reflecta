@@ -53,3 +53,35 @@ def test_api_base_url_is_same_origin_not_port_heuristic():
         "the frontend isn't opened through :8000 specifically"
     )
     assert 'location.protocol === "file:"' in js
+
+
+def test_span_progress_fills_declare_block_display():
+    """Regression: .bar-fill and .gap-fill are <span> elements sized via an inline
+    `width: NN%` style set in JS (see app.js). A <span> is `display: inline` by default,
+    and CSS width has NO effect on inline elements — the fill silently renders as a
+    hairline regardless of the computed percentage. Both selectors must declare a
+    non-inline display (block/inline-block/flex) for the width to actually apply."""
+    css = (FRONTEND / "styles.css").read_text(encoding="utf-8")
+    for selector in (".bar-fill", ".gap-fill"):
+        rule = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", css)
+        assert rule, f"{selector} rule not found in styles.css"
+        assert re.search(r"display\s*:\s*(block|inline-block|flex)", rule.group(1)), (
+            f"{selector} has no block-level display — its JS-set width:% will be ignored "
+            "because <span> is display:inline by default"
+        )
+
+
+def test_hero_cta_wins_specificity_over_btn_primary_full_width():
+    """Regression: .btn-primary sets `width: 100%` for full-width form buttons. The hero
+    CTA also carries the .btn-primary class (for its base color/shape), but must render
+    at its natural (auto) width, not stretched full-width like a form button. Relying on
+    CSS declaration order for this is fragile — whichever rule appears LATER in the file
+    wins when specificity is equal, so a later edit to .btn-primary silently broke the
+    hero CTA's width once already. The fix is a higher-specificity selector that wins
+    regardless of order: .btn.w-cta (two classes) beats .btn-primary (one class)."""
+    css = (FRONTEND / "styles.css").read_text(encoding="utf-8")
+    assert re.search(r"\.btn\.w-cta\s*\{[^}]*width:\s*auto", css), (
+        ".w-cta's width:auto must be declared on a selector with specificity >= "
+        "0,2,0 (e.g. `.btn.w-cta`) so it beats .btn-primary's `width: 100%` "
+        "regardless of which rule appears later in the stylesheet"
+    )

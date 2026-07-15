@@ -59,8 +59,8 @@ let state = {
 };
 
 const PAGE_TITLE = { start: "Take Quiz", quiz: "Quiz",
-                     results: "Your Reflection", reports: "Reports" };
-const SCREENS = ["start", "quiz", "results", "reports"];
+                     results: "Your Reflection", reports: "Reports", privacy: "Privacy" };
+const SCREENS = ["start", "quiz", "results", "reports", "privacy"];
 
 // The true marketing landing page (#landing, no sidebar) and the app shell
 // (#app-shell, sidebar + screens) are separate top-level views — "Get started" enters
