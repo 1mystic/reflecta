@@ -15,8 +15,10 @@ RUN pip install --upgrade pip && pip install ".[api,data]"
 COPY api ./api
 COPY frontend ./frontend
 COPY data/question_bank.json ./data/question_bank.json
-# ship trained artifacts if present (optional; app degrades gracefully without them)
-COPY models_store ./models_store
+# models_store/ (offline-trained IRT/BKT/SAKT artifacts) is gitignored and not wired
+# into live serving yet (see GUIDEBOOK §7.5) — nothing here reads it, so it's not
+# copied into the image. `COPY` errors on a missing source, and this path never
+# exists in a fresh clone anyway.
 
 # --- runtime hardening ---
 RUN adduser --disabled-password --gecos "" appuser \
