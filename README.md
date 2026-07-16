@@ -34,6 +34,13 @@ Behind the quiz sits a genuine ML research track: an **Item Response Theory** mo
 difficulty-aware mastery, and a from-scratch **BKT → SAKT (self-attentive) knowledge-tracing**
 pipeline trained on **525,000 real learner interactions**, tracked with **MLflow**.
 
+And it shows you the model thinking. A live **Cognitive Vitals** panel updates after every
+answer — ability θ, the model's *certainty* (the Laplace posterior variance, free from the
+fit), running calibration, and a reactive face — driven by a per-session online-IRT tick
+that never leaks the answer key. A **Model Lab** page surfaces the real offline AUCs from
+MLflow, and a live **architecture diagram** walks the whole request flow. The one-insight
+technical write-up behind all of this is [`docs/WRITEUP.md`](docs/WRITEUP.md).
+
 ---
 
 ## Results (real data, honestly reported)
@@ -59,13 +66,23 @@ deliberate engineering call, not an oversight.
 
 ## What it looks like
 
-*(screenshots pending — run `uvicorn api.main:app --reload` and open `localhost:8000`)*
+*(try it live: [reflecta-j1wz.onrender.com](https://reflecta-j1wz.onrender.com/) — or run
+`uvicorn api.main:app --reload` and open `localhost:8000`)*
 
-Three screens: **goal + consent** → **quiz** (progress, live confidence slider, per-question
+The core flow: **goal + consent** → **quiz** (progress, live confidence slider, per-question
 timing) → **reflection dashboard** (readiness ring, understanding/calibration tiles, ranked
-gaps, plain-language reflection, full question review). A separate **Reports** page exposes
-live model health, staleness/drift, and training metrics pulled straight from MLflow : the
-kind of internal tooling this project would need in production, built rather than skipped.
+gaps, plain-language reflection, full question review). Around it:
+
+- **Cognitive Vitals** — a live panel that updates after every answer: a reactive SVG face,
+  a certainty ring, and a marker riding the item-response curve, all driven by the
+  per-session online-IRT tick (`POST /api/quiz/answer`, aggregate-only so it can't leak the
+  key).
+- **Model Lab** — the offline research track made visible: real ASSISTments AUCs, dataset
+  size, and hyperparameters read live from MLflow, with an honest "online serves live,
+  offline is research" split.
+- **Architecture** — an animated component-by-component diagram of the whole request flow.
+- **Reports** — model health, staleness/drift, and training metrics from MLflow: the kind of
+  internal tooling this would need in production, built rather than skipped.
 
 ---
 
@@ -128,9 +145,13 @@ every signal (with derivations), and sequence diagrams for the live quiz flow.
   via `messages.parse()` against a Pydantic schema (not string-parsed JSON), cached per topic,
   with graceful degradation when no API key is configured
   ([`generation.py`](src/reflecta/generation.py)).
+- **Live per-session inference** : a `POST /api/quiz/answer` tick fits this learner's IRT
+  ability from their answers-so-far and returns only aggregate belief-state — never the
+  answer key — surfacing the posterior variance (free from the Newton fit) as a live
+  "certainty" signal. Regression-tested against answer-key leakage.
 - **MLOps, not just modeling** : MLflow experiment tracking + local model registry, a
-  `/api/reports` endpoint reporting artifact staleness and live-session drift, structured
-  JSON logging, request IDs.
+  `/api/reports` endpoint reporting artifact staleness and live-session drift (surfaced on a
+  Model Lab page), structured JSON logging, request IDs.
 - **Production posture** : multi-stage Docker build, non-root user, gunicorn+uvicorn, health
   and readiness probes, per-IP rate limiting, CORS lockdown in prod, consent-gated storage with
   a right-to-erasure endpoint. See [`docs/SECURITY.md`](docs/SECURITY.md) /
@@ -197,6 +218,7 @@ reflecta/
 |---|---|
 | [`docs/GUIDEBOOK.md`](docs/GUIDEBOOK.md) | Full architecture, the math behind every signal, design-decision log, end-to-end flow diagrams |
 | [`docs/STORY.md`](docs/STORY.md) | The Kaggle-to-Reflecta narrative, the 0.752 plateau, the pivot, the research arc |
+| [`docs/WRITEUP.md`](docs/WRITEUP.md) | The single technical insight, publishable as a blog post: cold-start, group-aware splits, serve-vs-benchmark, and the free posterior variance |
 | [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) | Milestone-by-milestone roadmap |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model, hardening measures |
 | [`docs/PRIVACY.md`](docs/PRIVACY.md) | What's collected, what isn't, retention, erasure |

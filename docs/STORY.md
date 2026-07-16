@@ -2,7 +2,10 @@
 
 *A technical narrative for anyone reviewing this project: what it is, why it exists, what
 broke along the way, and what the numbers actually say. For the exhaustive reference
-(every formula, every module), see [`GUIDEBOOK.md`](GUIDEBOOK.md). This is the story.*
+(every formula, every module), see [`GUIDEBOOK.md`](GUIDEBOOK.md); for the tight,
+single-insight version, see [`WRITEUP.md`](WRITEUP.md). This is the story.*
+
+**Live: [reflecta-j1wz.onrender.com](https://reflecta-j1wz.onrender.com/)**
 
 ---
 
@@ -120,6 +123,15 @@ it's the most important negative result in the whole project — it's what motiv
 *just the new learner's* `θ` via MAP with a Gaussian prior, from their live quiz answers.
 That's what actually estimates mastery for a real learner today.
 
+A detail that turned out to matter more than expected: Newton's method forms the Hessian
+of the log-posterior on every step, and the **Laplace posterior variance of `θ` is exactly
+`−1/Hessian`** — already computed, and originally thrown away. That variance *is* the
+model's uncertainty about the learner: it starts at the prior (the model knows nothing) and
+shrinks as consistent evidence arrives. Surfacing it cost one line and became the live
+"the model is getting surer about you" signal (§4.5). The full four-lesson version of this
+arc — the 0.752 label ceiling, the 0.506 cold-start, the serve-vs-benchmark split, and the
+free variance — is written up in [`WRITEUP.md`](WRITEUP.md).
+
 ### 3.2 — BKT (Bayesian Knowledge Tracing) — **AUC 0.763**
 
 A 2-state HMM per skill, tracking `P(knows)` over a learner's sequence of attempts —
@@ -163,8 +175,11 @@ flowchart TB
     subgraph Client["Browser — static SPA, zero build step"]
         Landing[Landing page] -->|Get started| Shell[App shell: sidebar + screens]
         Shell --> Quiz[Quiz flow]
+        Shell --> Vitals[Live Cognitive Vitals<br/>reactive face + ability curve]
         Shell --> Results[Reflection dashboard]
+        Shell --> Lab[Model Lab<br/>offline AUCs from MLflow]
         Shell --> Reports[Model health / Reports]
+        Shell --> Arch[Live architecture diagram]
     end
 
     subgraph API["FastAPI (api/main.py)"]
@@ -226,6 +241,31 @@ sequenceDiagram
     API->>Cache: cache the surviving, verified bank
     API-->>U: serve quiz
 ```
+
+### 4.5 Watching the model think: live Cognitive Vitals
+
+The online-IRT estimate updates after *every* answer, so the product shows it happening
+live instead of only at the end. A dedicated tick endpoint, `POST /api/quiz/answer`, grades
+the answers-so-far server-side and returns the belief state — ability `θ`, the derived
+certainty (from the free Laplace variance above), running calibration, timing quadrant, a
+correct-streak, and per-concept mastery — which drives a reactive SVG face and a marker
+riding the item-response curve. The face reads "overconfident" when you answer fast and
+sure but wrong, "not transferring" when you ace the original phrasing and miss its reworded
+twin, "confident" when high mastery meets low uncertainty.
+
+The design constraint that made this interesting: the answer key is hidden server-side, so
+the tick must **never** leak which option was correct — otherwise the live panel becomes a
+cheat oracle. It solves this by returning *only aggregate belief-state*, never per-item
+correctness, and by reading the pending session with a **peek** (not a pop), so the learner
+keeps answering and still submits normally at the end. A regression test asserts the tick
+response can never contain a `correct_letter`.
+
+A companion **Model Lab** page closes the loop with §3: it surfaces the *offline* research
+track — the real ASSISTments AUCs (IRT 0.506 / BKT 0.763 / SAKT 0.803), dataset size, and
+training hyperparameters — read live from `mlflow.db` at request time, degrading to "no
+models" rather than inventing numbers when the artifacts aren't shipped. The distinction is
+kept honest and explicit on the page itself: **online IRT serves live traffic; the offline
+models are research that doesn't serve yet** (§3.4).
 
 ---
 
@@ -307,6 +347,8 @@ above is a better source of truth than marketing copy would be:
 ## Where to go next
 
 - [`../README.md`](../README.md) — quickstart, results table, architecture diagram
+- [`WRITEUP.md`](WRITEUP.md) — the single-insight version: cold-start, group-aware splits,
+  serve-vs-benchmark, and the free posterior variance, in four lessons
 - [`GUIDEBOOK.md`](GUIDEBOOK.md) — the exhaustive reference: every formula, every design
   decision, a full glossary
 - [`legacy/`](legacy/) and [`../data/legacy_kaggle/`](../data/legacy_kaggle/) — the

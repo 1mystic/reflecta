@@ -303,6 +303,22 @@ The prior is essential: with only 2–4 items per concept, an all-correct run wo
 MLE to $+\infty$; the prior keeps $\theta$ finite and shrinks sparse evidence toward the
 population mean. Mastery reported to the UI is $\sigma(\theta)$. *(`models/online_irt.py`)*
 
+**Posterior uncertainty, for free.** The Newton step already forms the Hessian $h(\theta)$
+above; the Laplace approximation gives the posterior variance of $\theta$ directly as
+
+$$
+\operatorname{Var}(\theta) \approx -\frac{1}{h(\theta)} = \frac{1}{\sum_i p_i(1-p_i) + 1/\sigma^2}
+$$
+
+i.e. the inverse of the observed Fisher information plus the prior precision. At cold start
+(no responses) this equals the prior variance $\sigma^2$; it shrinks monotonically as
+consistent evidence accumulates. `estimate_ability_var` returns $(\theta, \operatorname{Var})$
+and `variance_to_certainty` maps it to a 0–1 "certainty" via $1 - \operatorname{Var}/\sigma^2$
+(evidence precision as a fraction of total precision) — the live "the model is getting surer
+about you" signal. The first version computed $h$ and discarded it; surfacing the variance
+cost one line. This is the headline of [`WRITEUP.md`](WRITEUP.md). *(`models/online_irt.py`:
+`estimate_ability_var`, `session_vitals`)*
+
 ### 7.3 Bayesian Knowledge Tracing (BKT)
 Mastery **over time** as a 2-state HMM per skill with parameters
 $\{p_{L_0}\text{(init)}, p_T\text{(learn)}, p_S\text{(slip)}, p_G\text{(guess)}\}$. Let
@@ -367,6 +383,47 @@ live bank uses) to retrain SAKT on the bank's own space — at that point `servi
 `get_mastery_estimator()` factory is the single seam to swap in a `NeuralKTMastery`
 implementation, no other code changes required. This is tracked in the roadmap (§14), not
 silently deferred.
+
+### 7.6 Live Cognitive Vitals — per-answer serving of the belief state
+
+The online-IRT fit (§7.2) is cheap enough to run after *every* answer, so the product
+exposes it live. `POST /api/quiz/answer` accepts the answers-so-far (the client already
+holds them), grades them against the still-pending answer key, and returns a `VitalsOut`:
+`theta`, `mastery`, `certainty` (from the posterior variance), running `calibration`
+(ECE + direction), `timing` quadrants, `streak`, `memorization`, per-concept mastery, and an
+`emotion` string. `session_vitals(df)` assembles the IRT quantities; `face_emotion(...)` is a
+pure deterministic map from those signals to one of `{calm, flow, confident, confused,
+overconfident, struggling}`, which the frontend renders as a morphing SVG face plus a marker
+on the item-response curve.
+
+Two design decisions make this safe and correct:
+
+- **Aggregate-only, never the key.** The response contains *no* `correct_letter` and no
+  per-item correctness — only the belief-state summary. If it returned per-item grading it
+  would be a cheat oracle for a quiz whose answers are deliberately server-side. A regression
+  test asserts `correct_letter` never appears in the tick payload.
+- **Peek, not pop.** The tick reads the pending session via `PendingSessionStore.peek()`
+  (added alongside `pop()`), so the answer key is *not* consumed — the learner keeps
+  answering and still submits normally at the end. The tick is also exempted from the
+  per-IP quiz rate-limiter, since it fires once per answer and is a read-only operation.
+
+**Model Lab (`/api/reports` → frontend).** The offline research track is surfaced honestly on
+its own page: `monitoring.build_report()` reads `mlflow.db` (via stdlib `sqlite3`, no MLflow
+import) and `models_store/` at request time, returning real AUCs, dataset size, and — after
+an extension to `_mlflow_metrics` — the training hyperparameters. The page states plainly
+that **online IRT serves live; the offline IRT/BKT/SAKT are research that does not serve
+yet**, and degrades to "no models" when the artifacts aren't shipped rather than inventing
+numbers. *(`monitoring.py`, `serving.py`, `reflection/vitals.py`)*
+
+### 7.7 Reflection text signals (optional, LLM)
+
+After a quiz the learner may write one line about *why* they chose what they chose;
+`extract_reflection_signals` (`reflection/text_signals.py`) runs it through Claude Haiku with
+a constrained Pydantic schema (`messages.parse`, mirroring `generation.py`) to extract stated
+confidence, hedging, and named misconceptions. It is guarded by `generation.is_available()`
+and returns `None` on empty input, no API key, or any failure — so the feature simply hides
+without a key, exactly like open-topic generation. This is the "in your own words" panel on
+the reflection dashboard.
 
 ---
 
