@@ -48,7 +48,12 @@ def _artifact_health() -> list[dict]:
 
 
 def _mlflow_metrics() -> list[dict]:
-    """Latest metric values per run from the local MLflow SQLite store (no mlflow import)."""
+    """Latest metric values (and hyperparameters) per run from the local MLflow SQLite
+    store (no mlflow import — we query its schema directly, read-only, so it stays fast).
+
+    The Model Lab shows both: metrics answer "how good is it" (val AUCs, dataset size) and
+    params answer "how was it trained" (epochs, d_model, source). Both degrade to empty when
+    mlflow.db isn't shipped (e.g. a prod deploy without the artifacts baked in)."""
     db = CONFIG.paths.root / "mlflow.db"
     if not db.exists():
         return []
@@ -62,13 +67,19 @@ def _mlflow_metrics() -> list[dict]:
             ORDER BY r.start_time DESC
             """
         ).fetchall()
+        params = con.execute(
+            "SELECT r.name, p.key, p.value FROM params p JOIN runs r ON r.run_uuid = p.run_uuid"
+        ).fetchall()
         con.close()
     except Exception:
         return []
     runs: dict[str, dict] = {}
     for run_name, key, value, _ in rows:
-        runs.setdefault(run_name or "run", {})[key] = round(float(value), 4)
-    return [{"run": name, "metrics": metrics} for name, metrics in runs.items()]
+        runs.setdefault(run_name or "run", {}).setdefault("metrics", {})[key] = round(float(value), 4)
+    for run_name, key, value in params:
+        runs.setdefault(run_name or "run", {}).setdefault("params", {})[key] = value
+    return [{"run": name, "metrics": r.get("metrics", {}), "params": r.get("params", {})}
+            for name, r in runs.items()]
 
 
 def _session_stats() -> dict:

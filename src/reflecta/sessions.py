@@ -124,6 +124,26 @@ class PendingSessionStore:
         payload = {**payload, "created_at": datetime.now(timezone.utc).isoformat()}
         self._path(session_id).write_text(json.dumps(payload), encoding="utf-8")
 
+    def peek(self, session_id: str) -> dict | None:
+        """Read WITHOUT deleting — for live per-answer vitals during an in-progress quiz.
+
+        The answer key stays pending (unlike pop) so the learner can keep answering and
+        still submit normally at the end. Same TTL/corruption handling as pop, but a stale
+        or unreadable file is left on disk for sweep_expired rather than unlinked here (a
+        peek shouldn't have side effects on a session the learner may still submit).
+        """
+        path = self._path(session_id)
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            created = datetime.fromisoformat(data["created_at"])
+        except Exception:
+            return None
+        if datetime.now(timezone.utc) - created > self.ttl:
+            return None  # expired: treat identically to "never existed"
+        return data
+
     def pop(self, session_id: str) -> dict | None:
         """Read and delete — a pending session is consumed exactly once, on submit."""
         path = self._path(session_id)

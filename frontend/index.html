@@ -56,9 +56,9 @@
           <button id="welcome-cta" class="btn btn-primary w-cta">
             Get started <svg class="bi"><use href="#i-arrow"/></svg>
           </button>
-          <a href="#how-it-works" class="w-cta-secondary">
+          <button type="button" id="see-how-btn" class="w-cta-secondary">
             <svg class="bi"><use href="#i-help"/></svg> See how it works
-          </a>
+          </button>
         </div>
         <span class="w-cta-note"><svg class="pi"><use href="#i-lock"/></svg> No account needed - anonymous by design</span>
       </div>
@@ -114,10 +114,13 @@
 
       <nav class="nav">
         <a class="nav-item active" data-view="start"><svg class="ni"><use href="#i-quiz"/></svg>Take Quiz</a>
+        <a class="nav-item" data-view="vitals"><svg class="ni"><use href="#i-pulse"/></svg>Cognitive Vitals</a>
         <a class="nav-item" data-view="results"><svg class="ni"><use href="#i-leaf"/></svg>Reflection</a>
+        <a class="nav-item" data-view="lab"><svg class="ni"><use href="#i-brain"/></svg>Model Lab</a>
         <a class="nav-item" data-view="reports"><svg class="ni"><use href="#i-chart"/></svg>Reports</a>
         <div class="nav-sep"></div>
         <a class="nav-item" data-view="privacy"><svg class="ni"><use href="#i-lock"/></svg>Privacy</a>
+        <a class="nav-item" data-view="architecture"><svg class="ni"><use href="#i-scale"/></svg>Architecture</a>
       </nav>
 
       <div class="side-user">
@@ -179,8 +182,170 @@
                 <input id="confidence" type="range" min="0" max="100" value="50" />
                 <div class="confidence-scale"><span>guessing</span><span>certain</span></div>
               </div>
+              <div class="reflect-block hidden" id="reflect-block">
+                <label class="field-label" for="reflect-text">Before you finish - in a sentence,
+                  why did you pick what you picked? (optional)</label>
+                <textarea id="reflect-text" class="reflect-text" rows="2"
+                  placeholder="e.g. I was sure on the first few, guessed on the regression ones"></textarea>
+              </div>
               <button id="next-btn" class="btn btn-primary" disabled>Next →</button>
             </div>
+
+            <!-- live cognitive vitals: updates after every answer from /api/quiz/answer -->
+            <div class="card vitals-strip" id="qz-vitals" data-emotion="calm">
+              <div class="vs-face" id="qz-face"></div>
+              <div class="vs-body">
+                <div class="vs-head">
+                  <span class="vs-emotion" id="qz-emotion">Calm</span>
+                  <span class="muted vs-note" id="qz-note">the model is forming its read on you</span>
+                </div>
+                <div class="bars">
+                  <div class="bar-row">
+                    <span class="bar-label">Model certainty</span>
+                    <span class="bar-track"><span class="bar-fill" id="qz-certainty"></span></span>
+                  </div>
+                </div>
+                <div class="vs-meta">
+                  <span>ability θ <b id="qz-theta">0.00</b></span>
+                  <span>mastery <b id="qz-mastery">–</b></span>
+                  <span>streak <b id="qz-streak">0</b></span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- screen: vitals (full live cognitive-vitals dashboard) -->
+          <section id="screen-vitals" class="screen hidden">
+            <div class="card vitals-hero" id="vt-card" data-emotion="calm">
+              <div class="vt-bento vt-bento-face">
+                <div class="vt-face-wrap" id="vt-face"></div>
+              </div>
+              <div class="vt-bento vt-bento-body">
+                <div class="vt-hero-body">
+                  <span class="vt-emotion-big" id="vt-emotion">Calm</span>
+                  <p class="muted" id="vt-tagline">Reflecta runs a live latent-trait model (online IRT)
+                    that updates its read on you after every answer. Take a quiz to watch it think.</p>
+                  <div class="vt-ring-row">
+                    <div class="vt-ring-col">
+                      <div class="ring" id="vt-ring"><span id="vt-certainty-val">–</span></div>
+                      <span class="tag" id="vt-emotion-tag"></span>
+                    </div>
+                    <div class="vt-curve-col">
+                      <svg viewBox="0 0 170 118" class="vt-curve" aria-hidden="true">
+                        <!-- grid -->
+                        <g class="vt-curve-grid">
+                          <line x1="10" y1="8" x2="10" y2="105"/>
+                          <line x1="10" y1="105" x2="168" y2="105"/>
+                          <line x1="10" y1="59" x2="168" y2="59" class="vt-curve-mid"/>
+                          <line x1="89" y1="8" x2="89" y2="105" class="vt-curve-mid"/>
+                        </g>
+                        <!-- P(correct) = sigmoid(theta): the item response curve -->
+                        <polyline class="vt-curve-line" points="10,102.4 20,101.4 30,99.7 40,97.2 50,93.3 60,87.6 70,79.8 80,70 90,59 100,48 110,38.2 120,30.4 130,24.7 140,20.8 150,18.3 160,16.6 168,15.6"/>
+                        <line class="vt-curve-guide" id="vt-curve-guide" x1="89" y1="8" x2="89" y2="105"/>
+                        <circle class="vt-curve-dot" id="vt-curve-dot" cx="89" cy="59" r="5"/>
+                      </svg>
+                      <span class="muted vt-curve-cap">your spot on the ability curve - P(correct)
+                        against skill (θ)</span>
+                    </div>
+                  </div>
+                  <p class="muted vt-ring-cap">model certainty - how much your answers have sharpened
+                    the estimate beyond the starting guess</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid">
+              <article class="card stat">
+                <h3>Ability (θ)</h3>
+                <div class="big" id="vt-theta">–</div>
+                <p class="muted">latent skill on the IRT logit scale</p>
+              </article>
+              <article class="card stat">
+                <h3>Mastery</h3>
+                <div class="big" id="vt-mastery">–</div>
+                <p class="muted">P(correct on an average-difficulty item)</p>
+              </article>
+              <article class="card stat">
+                <h3>Calibration</h3>
+                <div class="big" id="vt-calib">–</div>
+                <span class="tag" id="vt-calib-tag"></span>
+                <p class="muted">confidence vs reality so far</p>
+              </article>
+              <article class="card timing">
+                <h3>How you answer</h3>
+                <div class="bars" id="vt-timing"></div>
+              </article>
+            </div>
+
+            <article class="card">
+              <h3>Per-concept mastery (live)</h3>
+              <p class="muted">Difficulty-adjusted (IRT) per concept. A concept flagged
+                "reworded -" means you got the familiar phrasing but missed the transfer probe.</p>
+              <div class="bars" id="vt-concepts"></div>
+            </article>
+
+            <p class="muted vt-empty" id="vt-empty">No live session yet - your vitals appear here as
+              you take a quiz, and stay on the latest one.</p>
+          </section>
+
+          <!-- screen: model lab (offline ML research track made visible) -->
+          <section id="screen-lab" class="screen hidden">
+            <div class="card lab-intro">
+              <h2 class="form-title">Under the hood</h2>
+              <p class="muted">Live quizzes are scored by a per-session online IRT fit (no pretrained
+                model needed). Separately, Reflecta has a research track: knowledge-tracing models
+                trained offline on real learner data and tracked in MLflow. This page shows what those
+                models learned and how they compare. It reads live from the deployed artifacts and the
+                MLflow store; if none are shipped it says so instead of inventing numbers.</p>
+            </div>
+
+            <div class="grid">
+              <article class="card stat">
+                <h3>Training data</h3>
+                <div class="big" id="lab-rows">–</div>
+                <p class="muted" id="lab-rows-note">real interaction rows</p>
+              </article>
+              <article class="card stat">
+                <h3>Concepts / skills</h3>
+                <div class="big" id="lab-skills">–</div>
+                <p class="muted">distinct skills modeled</p>
+              </article>
+              <article class="card stat">
+                <h3>Live estimator</h3>
+                <div class="big lab-est" id="lab-estimator">–</div>
+                <p class="muted">serving live quiz traffic now</p>
+              </article>
+              <article class="card stat">
+                <h3>Status</h3>
+                <div class="big" id="lab-status"><span class="dot" id="lab-status-dot"></span>
+                  <span id="lab-status-txt">–</span></div>
+                <p class="muted">artifact freshness / rot</p>
+              </article>
+            </div>
+
+            <article class="card">
+              <h3>Held-out performance (AUC)</h3>
+              <p class="muted">AUC = probability the model ranks a correct answer above an incorrect
+                one on unseen learners (0.5 = chance). Group-aware split, so scores reflect
+                generalization to new people, not memorized learners.</p>
+              <div class="bars" id="lab-auc"></div>
+              <p class="muted lab-auc-note" id="lab-auc-note"></p>
+            </article>
+
+            <article class="card">
+              <h3>Deployed artifacts</h3>
+              <div class="table-wrap">
+                <table class="rep-table" id="lab-artifacts">
+                  <thead><tr><th>Artifact</th><th>Trained</th><th>Age</th><th>Size</th><th>Status</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>Training runs (MLflow)</h3>
+              <div id="lab-runs"></div>
+            </article>
           </section>
 
           <!-- screen: results -->
@@ -197,6 +362,18 @@
               <h3>Past reflections</h3>
               <p class="muted">Stored in this browser only, not on a server. Click any entry to view it.</p>
               <div id="history-list" class="history-list"></div>
+            </div>
+
+            <div class="card signals-card hidden" id="signals-card">
+              <h3>In your own words</h3>
+              <p class="muted">Signals read from what you wrote, by Claude - separate from the
+                behavioral metrics below.</p>
+              <p class="signals-summary" id="signals-summary"></p>
+              <div class="signals-meta">
+                <span class="tag" id="signals-conf"></span>
+                <span class="tag" id="signals-hedge"></span>
+              </div>
+              <div id="signals-flags" class="signals-flags"></div>
             </div>
 
             <div class="card growth hidden" id="growth-card">
@@ -338,6 +515,155 @@
 
               <p class="muted" style="margin-top:16px">Deploying to under-age learners? Parental consent and
               stricter retention are required - see the full notice.</p>
+            </div>
+          </section>
+
+          <!-- screen: architecture (live animated system diagram of the whole app) -->
+          <section id="screen-architecture" class="screen hidden">
+            <div class="card arch-intro">
+              <h2 class="form-title">How Reflecta works, end to end</h2>
+              <p class="muted">Every box is a real component; the flowing dotted arrows are the live
+                request paths. Follow a quiz left to right: the browser calls the API, the API drives the
+                reflecta core, and results land in disk storage or the Claude API. The animation is the
+                data moving.</p>
+              <div class="arch-legend">
+                <span class="arch-key arch-k-client">Client</span>
+                <span class="arch-key arch-k-api">FastAPI</span>
+                <span class="arch-key arch-k-core">Reflecta core</span>
+                <span class="arch-key arch-k-store">Storage / disk</span>
+                <span class="arch-key arch-k-ext">Claude API</span>
+                <span class="arch-key arch-k-flow">- flow</span>
+                <span class="arch-key arch-k-read">- reads</span>
+                <span class="arch-key arch-k-ret">- response</span>
+              </div>
+            </div>
+
+            <div class="card arch-card">
+              <div class="arch-scroll">
+              <svg viewBox="0 0 1120 830" class="arch-svg" role="img"
+                   aria-label="Reflecta system architecture diagram">
+                <defs>
+                  <marker id="arch-head" markerWidth="9" markerHeight="9" refX="7" refY="4.5"
+                          orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" class="arch-head-fill"/></marker>
+                  <marker id="arch-head-ext" markerWidth="9" markerHeight="9" refX="7" refY="4.5"
+                          orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" class="arch-head-ext-fill"/></marker>
+                  <marker id="arch-head-ret" markerWidth="9" markerHeight="9" refX="7" refY="4.5"
+                          orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" class="arch-head-ret-fill"/></marker>
+                </defs>
+
+                <!-- column headers -->
+                <text x="129" y="26" class="arch-col">CLIENT</text>
+                <text x="405" y="26" class="arch-col">FASTAPI - api/main.py</text>
+                <text x="695" y="26" class="arch-col">REFLECTA CORE - src/reflecta</text>
+                <text x="989" y="26" class="arch-col">STORAGE / DISK</text>
+
+                <!-- arrows (drawn first, under the boxes) -->
+                <!-- browser -> endpoints -->
+                <path class="arch-arrow arch-flow" d="M234,364 C270,364 270,102 300,102"/>
+                <path class="arch-arrow arch-flow" d="M234,364 C270,340 270,282 300,282"/>
+                <path class="arch-arrow arch-flow" d="M234,364 C270,388 270,462 300,462"/>
+                <path class="arch-arrow arch-flow" d="M234,364 C270,430 270,642 300,642"/>
+                <!-- endpoints -> core -->
+                <path class="arch-arrow arch-flow" d="M510,102 L588,102"/>
+                <path class="arch-arrow arch-flow" d="M510,282 L588,282"/>
+                <path class="arch-arrow arch-flow" d="M510,462 L588,462"/>
+                <path class="arch-arrow arch-flow" d="M510,642 L588,642"/>
+                <!-- core -> storage -->
+                <path class="arch-arrow arch-flow" d="M800,102 L882,102"/>
+                <path class="arch-arrow arch-flow" d="M800,282 L882,282"/>
+                <path class="arch-arrow arch-flow" d="M800,462 L882,462"/>
+                <path class="arch-arrow arch-flow" d="M800,642 L882,642"/>
+                <!-- tick reads the pending answer key -->
+                <path class="arch-arrow arch-read arch-flow" d="M884,126 C846,168 828,224 802,262"/>
+                <!-- generation + text_signals call Claude -->
+                <path class="arch-arrow arch-ext arch-flow" d="M695,138 C695,420 660,640 626,760"/>
+                <path class="arch-arrow arch-ext arch-flow" d="M989,498 C989,660 770,742 706,760"/>
+                <!-- vitals response back to the browser -->
+                <path class="arch-arrow arch-ret arch-flow" d="M884,306 C560,470 360,470 236,392"/>
+
+                <!-- nodes -->
+                <g class="arch-node arch-client">
+                  <rect x="24" y="300" width="210" height="128" rx="12"/>
+                  <text x="129" y="350" class="arch-title">Browser SPA</text>
+                  <text x="129" y="372" class="arch-sub">frontend/ - app.js</text>
+                  <text x="129" y="390" class="arch-sub">landing + app shell</text>
+                  <text x="129" y="408" class="arch-sub">reactive SVG face</text>
+                </g>
+
+                <g class="arch-node arch-api">
+                  <rect x="300" y="70" width="210" height="64" rx="10"/>
+                  <text x="405" y="98" class="arch-title">POST /api/quiz/start</text>
+                  <text x="405" y="116" class="arch-sub">consent gate - deliver</text>
+                </g>
+                <g class="arch-node arch-api">
+                  <rect x="300" y="250" width="210" height="64" rx="10"/>
+                  <text x="405" y="278" class="arch-title">POST /api/quiz/answer</text>
+                  <text x="405" y="296" class="arch-sub">live vitals tick (peek)</text>
+                </g>
+                <g class="arch-node arch-api">
+                  <rect x="300" y="430" width="210" height="64" rx="10"/>
+                  <text x="405" y="458" class="arch-title">POST /api/quiz/submit</text>
+                  <text x="405" y="476" class="arch-sub">grade - analyze - persist</text>
+                </g>
+                <g class="arch-node arch-api">
+                  <rect x="300" y="610" width="210" height="64" rx="10"/>
+                  <text x="405" y="638" class="arch-title">GET /api/reports</text>
+                  <text x="405" y="656" class="arch-sub">Model Lab + Reports data</text>
+                </g>
+
+                <g class="arch-node arch-core">
+                  <rect x="590" y="70" width="210" height="64" rx="10"/>
+                  <text x="695" y="98" class="arch-title">Question delivery</text>
+                  <text x="695" y="116" class="arch-sub">QuestionBank - generation.py</text>
+                </g>
+                <g class="arch-node arch-core">
+                  <rect x="590" y="250" width="210" height="64" rx="10"/>
+                  <text x="695" y="278" class="arch-title">Online IRT (MAP)</text>
+                  <text x="695" y="296" class="arch-sub">session_vitals - theta + variance</text>
+                </g>
+                <g class="arch-node arch-core">
+                  <rect x="590" y="430" width="210" height="64" rx="10"/>
+                  <text x="695" y="458" class="arch-title">Analysis pipeline</text>
+                  <text x="695" y="476" class="arch-sub">behavior - intent-gap - ECE</text>
+                </g>
+                <g class="arch-node arch-core">
+                  <rect x="590" y="610" width="210" height="64" rx="10"/>
+                  <text x="695" y="638" class="arch-title">Monitoring</text>
+                  <text x="695" y="656" class="arch-sub">build_report - sqlite read</text>
+                </g>
+
+                <g class="arch-node arch-store">
+                  <rect x="884" y="70" width="210" height="64" rx="10"/>
+                  <text x="989" y="98" class="arch-title">Pending sessions</text>
+                  <text x="989" y="116" class="arch-sub">disk - hidden answer key</text>
+                </g>
+                <g class="arch-node arch-core">
+                  <rect x="884" y="250" width="210" height="64" rx="10"/>
+                  <text x="989" y="278" class="arch-title">VitalsOut + face</text>
+                  <text x="989" y="296" class="arch-sub">reflection/vitals.py</text>
+                </g>
+                <g class="arch-node arch-store">
+                  <rect x="884" y="430" width="210" height="64" rx="10"/>
+                  <text x="989" y="452" class="arch-title">Sessions + reflection</text>
+                  <text x="989" y="470" class="arch-sub">FileSessionStore</text>
+                  <text x="989" y="486" class="arch-sub">engine - text_signals</text>
+                </g>
+                <g class="arch-node arch-store">
+                  <rect x="884" y="610" width="210" height="64" rx="10"/>
+                  <text x="989" y="638" class="arch-title">MLflow + artifacts</text>
+                  <text x="989" y="656" class="arch-sub">mlflow.db - models_store</text>
+                </g>
+
+                <g class="arch-node arch-ext">
+                  <rect x="330" y="758" width="440" height="56" rx="12"/>
+                  <text x="550" y="782" class="arch-title">Anthropic Claude API - Haiku</text>
+                  <text x="550" y="800" class="arch-sub">generation.py + text_signals.py - optional, key-gated</text>
+                </g>
+              </svg>
+              </div>
+              <p class="muted arch-foot">Live mastery is the per-session online IRT fit (no pretrained model
+                needed). The offline IRT/BKT/SAKT models trained on ASSISTments feed the Model Lab and
+                MLflow, and do not serve live traffic yet - see the seam at serving.get_mastery_estimator().</p>
             </div>
           </section>
         </div>

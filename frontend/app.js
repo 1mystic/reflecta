@@ -53,14 +53,61 @@ const TIMING_META = {
   slow_wrong:   { label: "Struggling", color: "#cf7b52" },
 };
 
-let state = {
-  sessionId: null, goal: "", questions: [], idx: 0,
-  answers: {}, selected: null, questionStart: 0,
+// ── reactive face: each emotion (from the backend's face_emotion) maps to a mouth + brow
+// shape. viewBox is 0 0 200 200; eyes are fixed, mouth/brows carry the expression. Colours
+// come from CSS via the container's data-emotion attribute (warm palette, not hardcoded). ──
+const FACE = {
+  calm:          { label: "Calm",          note: "the model is forming its read on you",
+    mouth: "M70 130 Q100 140 130 130", browL: "M62 70 Q73 67 84 70", browR: "M116 70 Q127 67 138 70" },
+  flow:          { label: "In flow",       note: "you're moving well - answers landing",
+    mouth: "M68 126 Q100 154 132 126", browL: "M62 69 Q73 66 84 69", browR: "M116 69 Q127 66 138 69" },
+  confident:     { label: "Confident",     note: "high mastery and the model is sure of it",
+    mouth: "M70 128 Q100 148 130 128", browL: "M62 69 Q73 65 84 68", browR: "M116 68 Q127 65 138 69" },
+  confused:      { label: "Not transferring", note: "you know the phrasing, not yet the idea",
+    mouth: "M70 132 Q85 123 100 132 Q115 141 130 132", browL: "M62 66 Q73 62 84 68", browR: "M116 70 Q127 71 138 72" },
+  overconfident: { label: "Overconfident", note: "answering fast and sure, but missing",
+    mouth: "M70 134 Q100 134 130 120", browL: "M62 72 Q73 70 84 71", browR: "M116 64 Q127 60 138 63" },
+  struggling:    { label: "Struggling",    note: "slow and off - this topic is fighting back",
+    mouth: "M70 138 Q100 120 130 138", browL: "M62 66 Q73 71 84 74", browR: "M116 74 Q127 71 138 66" },
 };
 
-const PAGE_TITLE = { start: "Take Quiz", quiz: "Quiz",
-                     results: "Your Reflection", reports: "Reports", privacy: "Privacy" };
-const SCREENS = ["start", "quiz", "results", "reports", "privacy"];
+function faceMarkup(prefix) {
+  return `<svg viewBox="0 0 200 200" class="face-svg" aria-hidden="true">
+    <circle class="face-bg" cx="100" cy="100" r="94"/>
+    <circle class="face-eye" cx="74" cy="90" r="7"/>
+    <circle class="face-eye" cx="126" cy="90" r="7"/>
+    <path class="face-brow" id="${prefix}-brow-l"/>
+    <path class="face-brow" id="${prefix}-brow-r"/>
+    <path class="face-mouth" id="${prefix}-mouth"/>
+  </svg>`;
+}
+
+// apply an emotion to a face: set the mouth/brow paths and the container tone (for colour)
+function applyFace(cardId, prefix, emotion) {
+  const f = FACE[emotion] || FACE.calm;
+  const set = (id, d) => { const el = $(id); if (el) el.setAttribute("d", d); };
+  set(`${prefix}-mouth`, f.mouth);
+  set(`${prefix}-brow-l`, f.browL);
+  set(`${prefix}-brow-r`, f.browR);
+  const card = $(cardId);
+  if (card) {
+    card.setAttribute("data-emotion", emotion);
+    card.classList.remove("face-pulse");
+    void card.offsetWidth;              // restart the pulse animation on each update
+    card.classList.add("face-pulse");
+  }
+  return f;
+}
+
+let state = {
+  sessionId: null, goal: "", questions: [], idx: 0,
+  answers: {}, selected: null, questionStart: 0, lastVitals: null,
+};
+
+const PAGE_TITLE = { start: "Take Quiz", quiz: "Quiz", vitals: "Cognitive Vitals",
+                     results: "Your Reflection", lab: "Model Lab",
+                     reports: "Reports", privacy: "Privacy", architecture: "Architecture" };
+const SCREENS = ["start", "quiz", "vitals", "results", "lab", "reports", "privacy", "architecture"];
 
 // The true marketing landing page (#landing, no sidebar) and the app shell
 // (#app-shell, sidebar + screens) are separate top-level views - "Get started" enters
@@ -110,7 +157,8 @@ async function startQuiz() {
     const data = await res.json();
     setLearnerId(data.learner_id);
     state = { sessionId: data.session_id, goal: data.goal, questions: data.questions,
-              idx: 0, answers: {}, selected: null, questionStart: 0 };
+              idx: 0, answers: {}, selected: null, questionStart: 0, lastVitals: null };
+    resetVitals();
     show("quiz");
     renderQuestion();
   } catch (e) {
@@ -148,11 +196,14 @@ function renderQuestion() {
   $("confidence").value = 50;
   $("conf-val").textContent = "50%";
   $("next-btn").disabled = true;
-  $("next-btn").textContent = state.idx === n - 1 ? "Finish ✓" : "Next →";
+  const isLast = state.idx === n - 1;
+  $("next-btn").textContent = isLast ? "Finish ✓" : "Next →";
+  // reveal the one-line reflection prompt only on the final question
+  $("reflect-block").classList.toggle("hidden", !isLast);
   state.questionStart = performance.now();
 }
 
-function recordAndNext() {
+async function recordAndNext() {
   const q = state.questions[state.idx];
   const elapsed = (performance.now() - state.questionStart) / 1000;
   state.answers[q.id] = {
@@ -161,12 +212,116 @@ function recordAndNext() {
     response_time: Math.round(elapsed * 100) / 100,
     confidence: parseInt($("confidence").value, 10) / 100,
   };
-  if (state.idx < state.questions.length - 1) {
+  const isLast = state.idx >= state.questions.length - 1;
+  if (isLast) {
+    // fetch the final vitals snapshot BEFORE submit pops the pending session, so the
+    // Cognitive Vitals screen reflects the whole quiz; then grade + submit.
+    await tickVitals();
+    submitQuiz();
+  } else {
+    tickVitals();          // fire-and-forget: next question renders instantly
     state.idx += 1;
     renderQuestion();
-  } else {
-    submitQuiz();
   }
+}
+
+// ── live cognitive vitals: grade answers-so-far server-side and animate the face + meters.
+// The endpoint returns ONLY aggregate belief-state signals (never the correct answer), so
+// this cannot be used to cheat. ──
+async function tickVitals() {
+  if (!state.sessionId) return;
+  try {
+    const res = await fetch(`${API}/api/quiz/answer`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: state.sessionId, answers: Object.values(state.answers) }),
+    });
+    if (!res.ok) return;              // vitals are a nice-to-have; never block the quiz
+    const v = await res.json();
+    state.lastVitals = v;
+    renderVitals(v);
+  } catch { /* offline / transient: leave the last shown vitals in place */ }
+}
+
+function resetVitals() {
+  state.lastVitals = null;
+  applyFace("qz-vitals", "qz", "calm");
+  $("qz-emotion").textContent = FACE.calm.label;
+  $("qz-note").textContent = FACE.calm.note;
+  $("qz-certainty").style.width = "0%";
+  $("qz-theta").textContent = "0.00";
+  $("qz-mastery").textContent = "–";
+  $("qz-streak").textContent = "0";
+}
+
+function renderVitals(v) {
+  const f = FACE[v.emotion] || FACE.calm;
+
+  // compact strip on the quiz screen
+  applyFace("qz-vitals", "qz", v.emotion);
+  $("qz-emotion").textContent = f.label;
+  $("qz-note").textContent = f.note;
+  $("qz-certainty").style.width = pct(v.certainty);
+  $("qz-theta").textContent = v.theta.toFixed(2);
+  $("qz-mastery").textContent = pct(v.mastery);
+  $("qz-streak").textContent = v.streak;
+
+  // full vitals screen
+  const empty = $("vt-empty"); if (empty) empty.classList.add("hidden");
+  applyFace("vt-card", "vt", v.emotion);
+  $("vt-emotion").textContent = f.label;
+  setTag("vt-emotion-tag", [f.note, v.emotion === "confident" || v.emotion === "flow"
+    ? "good" : v.emotion === "struggling" ? "low" : "mid"]);
+  const deg = Math.round(v.certainty * 360);
+  $("vt-ring").style.background = `conic-gradient(var(--brown) ${deg}deg, var(--line) ${deg}deg)`;
+  $("vt-certainty-val").textContent = pct(v.certainty);
+  $("vt-theta").textContent = v.theta.toFixed(2);
+  $("vt-mastery").textContent = pct(v.mastery);
+
+  // move the marker on the ability curve: x from theta (clamped to the plotted range),
+  // y from mastery so the dot rides the sigmoid. Matches the polyline geometry above.
+  const th = Math.max(-4, Math.min(4, v.theta));
+  const cx = 10 + (th + 4) * 19.75;
+  const cy = 102.4 - v.mastery * 86.8;
+  const dot = $("vt-curve-dot"), guide = $("vt-curve-guide");
+  if (dot) { dot.setAttribute("cx", cx.toFixed(1)); dot.setAttribute("cy", cy.toFixed(1)); }
+  if (guide) guide.style.transform = `translateX(${(cx - 89).toFixed(1)}px)`;
+
+  // calibration (running): show the gap magnitude + over/under direction
+  const dir = v.calibration && v.calibration.direction;
+  if (dir == null) { $("vt-calib").textContent = "–"; setTag("vt-calib-tag", null); }
+  else {
+    $("vt-calib").textContent = pct(Math.abs(dir));
+    setTag("vt-calib-tag", dir > 0.08 ? ["overconfident", "low"]
+      : dir < -0.08 ? ["underconfident", "mid"] : ["well calibrated", "good"]);
+  }
+
+  // timing quadrants (reuse the results-screen meta/colours)
+  const timing = $("vt-timing"); timing.innerHTML = "";
+  Object.entries(TIMING_META).forEach(([k, meta]) => {
+    const val = (v.timing || {})[k] || 0;
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `<span class="bar-label">${meta.label}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${pct(val)};background:${meta.color}"></span></span>`;
+    timing.appendChild(row);
+  });
+
+  // per-concept mastery, with a transfer flag where the reworded probe dropped accuracy
+  const cbox = $("vt-concepts"); cbox.innerHTML = "";
+  const concepts = v.per_concept || {};
+  const transfer = v.transfer || {};
+  const keys = Object.keys(concepts);
+  if (!keys.length) cbox.innerHTML = `<span class="muted">Per-concept mastery appears once a concept has been probed.</span>`;
+  keys.forEach((c) => {
+    const m = concepts[c].mastery;
+    const t = transfer[c];
+    const flag = (t != null && t >= 0.4) ? ` <span class="tag tag-low vt-flag">reworded -${pct(t)}</span>` : "";
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `<span class="bar-label">${c.replace(/_/g, " ")}${flag}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${pct(m)}"></span></span>`;
+    cbox.appendChild(row);
+  });
 }
 
 // ── reflection history: stored client-side only (localStorage), never sent to the
@@ -225,13 +380,36 @@ function renderHistoryList(activeTimestamp) {
   });
 }
 
+// feature C: render Claude-extracted signals from the learner's free-text reflection.
+// Absent (no key, skipped, or a stored history entry) -> the whole card stays hidden.
+function renderTextSignals(sig) {
+  const card = $("signals-card");
+  if (!sig) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  $("signals-summary").textContent = sig.summary || "";
+  setTag("signals-conf", sig.confidence == null ? null
+    : sig.confidence >= 0.66 ? ["sounds confident", "good"]
+    : sig.confidence >= 0.33 ? ["mixed confidence", "mid"] : ["sounds unsure", "low"]);
+  setTag("signals-hedge", sig.hedging ? ["hedging language", "mid"] : ["direct language", "good"]);
+  const flags = $("signals-flags"); flags.innerHTML = "";
+  (sig.misconception_flags || []).forEach((f) => {
+    const el = document.createElement("span");
+    el.className = "chip"; el.textContent = f;
+    flags.appendChild(el);
+  });
+}
+
 async function submitQuiz() {
   const btn = $("next-btn");
   btn.disabled = true; btn.textContent = "Analyzing…";
   try {
     const res = await fetch(`${API}/api/quiz/submit`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: state.sessionId, answers: Object.values(state.answers) }),
+      body: JSON.stringify({
+        session_id: state.sessionId,
+        answers: Object.values(state.answers),
+        reflection_text: ($("reflect-text").value || "").trim() || undefined,
+      }),
     });
     if (!res.ok) throw new Error(await readApiError(res));
     const submitResponse = await res.json();
@@ -280,6 +458,7 @@ function renderResults(d) {
   $("result-goal").textContent = `toward “${a.goal}”`;
   renderGrowth(d.history);
   renderHistoryList(d.timestamp);
+  renderTextSignals(d.text_signals);
 
   const deg = Math.round((a.readiness || 0) * 360);
   $("ring").style.background = `conic-gradient(var(--brown) ${deg}deg, var(--line) ${deg}deg)`;
@@ -376,11 +555,25 @@ document.querySelectorAll(".nav-item[data-view]").forEach((el) => {
       return;
     }
     if (v === "reports") { show("reports"); loadReports(); return; }
+    if (v === "lab") { show("lab"); loadModelLab(); return; }
+    if (v === "vitals") {
+      // show the latest live vitals if a quiz has been taken this page-load
+      if (state.lastVitals) renderVitals(state.lastVitals);
+      show("vitals");
+      return;
+    }
     show(v);
   });
 });
 $("welcome-cta").addEventListener("click", enterApp);
+// "See how it works" enters the app and opens the live architecture diagram
+$("see-how-btn").addEventListener("click", () => { enterApp(); show("architecture"); });
 $("brand-home").addEventListener("click", showLanding);
+
+// inject the two reactive faces once (compact strip + full vitals screen), then reset
+$("qz-face").innerHTML = faceMarkup("qz");
+$("vt-face").innerHTML = faceMarkup("vt");
+resetVitals();
 
 // ── reports / monitoring ──
 async function loadReports() {
@@ -435,6 +628,86 @@ async function loadReports() {
   } catch (e) {
     $("rep-status").textContent = "unreachable";
     $("rep-status-dot").className = "dot dot-low";
+  }
+}
+
+// ── model lab: surface the offline research track (reads the same /api/reports payload) ──
+const AUC_MODELS = [
+  { key: "irt_val_auc", label: "Offline IRT", color: "#cf7b52" },
+  { key: "bkt_val_auc", label: "BKT", color: "#e2a25c" },
+  { key: "sakt_val_auc", label: "SAKT", color: "#8faa78" },
+];
+
+async function loadModelLab() {
+  try {
+    const d = await (await fetch(`${API}/api/reports`)).json();
+    const runs = d.training_metrics || [];
+    // flatten all runs' metrics into one lookup (keys are unique across runs)
+    const metrics = {};
+    runs.forEach((r) => Object.assign(metrics, r.metrics || {}));
+
+    const rows = metrics.data_n_rows;
+    $("lab-rows").textContent = rows == null ? "–" : Math.round(rows).toLocaleString();
+    $("lab-skills").textContent = metrics.data_n_skills == null ? "–" : Math.round(metrics.data_n_skills);
+    $("lab-estimator").textContent = (d.registry && d.registry.live_mastery_estimator) || "online IRT";
+
+    const tone = d.overall_status === "healthy" ? "good"
+               : d.overall_status === "watch" ? "mid"
+               : d.overall_status === "no models" ? "mid" : "low";
+    $("lab-status-dot").className = "dot dot-" + tone;
+    $("lab-status-txt").textContent = d.overall_status || "unknown";
+
+    // AUC comparison - scaled from 0.5 (chance floor) to 1.0 so real gaps are legible
+    const box = $("lab-auc"); box.innerHTML = "";
+    let any = false;
+    AUC_MODELS.forEach((m) => {
+      const auc = metrics[m.key];
+      if (auc == null) return;
+      any = true;
+      const w = Math.max(0, Math.min(1, (auc - 0.5) / 0.5)) * 100;
+      const row = document.createElement("div");
+      row.className = "bar-row";
+      row.innerHTML = `<span class="bar-label">${m.label}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${w}%;background:${m.color}"></span></span>
+        <b style="margin-left:8px;color:var(--brown-deep)">${auc.toFixed(3)}</b>`;
+      box.appendChild(row);
+    });
+    $("lab-auc-note").textContent = any
+      ? "Bars scaled from 0.5 (chance) to 1.0. Offline IRT sits near chance on unseen learners"
+        + " - the founding insight that motivated the per-session online IRT now serving live"
+        + " quizzes. Sequence models (SAKT) recover the signal but need a product-scale exercise"
+        + " vocabulary before they can serve live."
+      : "No training runs are shipped with this deployment, so there are no offline AUCs to show.";
+
+    // artifacts table
+    const tb = document.querySelector("#lab-artifacts tbody");
+    tb.innerHTML = "";
+    (d.artifacts || []).forEach((a) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><b>${a.artifact}</b></td><td>${a.trained_at}</td>
+        <td>${a.age_days}d</td><td>${a.size_kb} KB</td>
+        <td><span class="pill pill-${a.status === "fresh" ? "fresh" : a.status === "aging" ? "aging" : "stale"}">${a.status}</span></td>`;
+      tb.appendChild(tr);
+    });
+    if (!(d.artifacts || []).length)
+      tb.innerHTML = `<tr><td colspan="5" class="muted">No artifacts shipped with this deployment.</td></tr>`;
+
+    // training runs: metric + param chips
+    const rbox = $("lab-runs"); rbox.innerHTML = "";
+    runs.forEach((run) => {
+      const div = document.createElement("div");
+      div.className = "metric-run";
+      const chip = (k, v) => `<span class="metric-chip">${k.replace(/_/g, " ")} <b>${v}</b></span>`;
+      const mchips = Object.entries(run.metrics || {}).map(([k, v]) => chip(k, v)).join("");
+      const pchips = Object.entries(run.params || {}).map(([k, v]) => chip(k, v)).join("");
+      div.innerHTML = `<h4>${run.run}</h4><div class="metric-chips">${mchips}${pchips}</div>`;
+      rbox.appendChild(div);
+    });
+    if (!runs.length)
+      rbox.innerHTML = `<span class="muted">No MLflow runs found - train with scripts/run_pipeline.py, or ship mlflow.db with the deploy.</span>`;
+  } catch (e) {
+    $("lab-status-txt").textContent = "unreachable";
+    $("lab-status-dot").className = "dot dot-low";
   }
 }
 

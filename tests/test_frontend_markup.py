@@ -101,3 +101,27 @@ def test_sidebar_has_no_api_docs_nav_item():
     sidebar = html.split('<nav class="nav">')[1].split("</nav>")[0]
     assert "/docs" not in sidebar
     assert "API" not in sidebar
+
+
+def test_new_screens_and_nav_items_exist_and_are_registered():
+    """The Cognitive Vitals and Model Lab screens are shown/hidden by app.js's show(),
+    which iterates the SCREENS array and calls $(`screen-${s}`) on each. A nav item whose
+    screen id or SCREENS entry is missing throws (null.classList) and breaks ALL nav. Guard
+    both the markup ids and the JS registration together."""
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    js = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    for view in ("vitals", "lab"):
+        assert f'id="screen-{view}"' in html, f"#screen-{view} section missing"
+        assert f'data-view="{view}"' in html, f"nav item for {view} missing"
+        # must be in the SCREENS array or show() throws on the missing element
+        assert re.search(rf'SCREENS\s*=\s*\[[^\]]*"{view}"', js), (
+            f'"{view}" not registered in the SCREENS array - show() would crash on it')
+
+
+def test_vitals_face_and_meters_have_target_elements():
+    """The live tick (app.js tickVitals -> renderVitals) writes into specific ids after
+    every answer. If the markup ids drift, the face silently stops updating."""
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    for el_id in ("qz-face", "qz-emotion", "qz-certainty", "qz-theta",
+                  "vt-face", "vt-emotion", "vt-theta", "vt-concepts"):
+        assert f'id="{el_id}"' in html, f"vitals element #{el_id} missing from markup"

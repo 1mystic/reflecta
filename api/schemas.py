@@ -91,6 +91,32 @@ class AnswerIn(BaseModel):
 class QuizSubmitRequest(BaseModel):
     session_id: str
     answers: list[AnswerIn]
+    # optional free-text "why did you pick what you picked?" - run through Claude to
+    # extract confidence/hedging/misconception signals (feature C). Omitted or empty when
+    # the learner skips it or the server has no ANTHROPIC_API_KEY; degrades to no signals.
+    reflection_text: str | None = Field(default=None, max_length=1000)
+
+
+# ---------- live cognitive vitals (per-answer tick) ----------
+class QuizTickRequest(BaseModel):
+    # answers-so-far (the client already holds these); graded server-side against the still
+    # -pending key so nothing about the correct answer is ever returned to the client.
+    session_id: str
+    answers: list[AnswerIn]
+
+
+class VitalsOut(BaseModel):
+    theta: float                 # live ability estimate (logit scale)
+    mastery: float               # P(correct on an average item) = sigmoid(theta)
+    certainty: float             # 0..1, how much the posterior has tightened past the prior
+    calibration: dict            # {ece, direction} running (direction>0 overconfident)
+    timing: dict                 # fast/slow x correct/wrong quadrant fractions so far
+    streak: int                  # current run of consecutive correct answers
+    memorization: float | None   # session-level acc(original)-acc(reworded), None if N/A
+    transfer: dict               # per-concept acc(original)-acc(reworded)
+    per_concept: dict            # {concept: {mastery, theta}}
+    emotion: str                 # face expression key (see reflection.vitals.EMOTIONS)
+    n_answered: int
 
 
 class GradedItem(BaseModel):
@@ -113,3 +139,6 @@ class QuizSubmitResponse(BaseModel):
     graded: list[GradedItem]
     analysis: AnalyzeResponse
     history: LearnerHistoryOut | None = None  # present only when learner_id was supplied
+    # LLM-extracted signals from the optional free-text reflection (feature C). None when
+    # the learner skipped it or the server has no ANTHROPIC_API_KEY - frontend hides it.
+    text_signals: dict | None = None

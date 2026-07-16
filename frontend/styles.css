@@ -251,6 +251,7 @@ body {
   padding: 15px 26px; border-radius: 14px; font-size: 15.5px; font-weight: 700;
   color: var(--brown-deep); background: rgba(255,255,255,0.7);
   border: 1px solid rgba(177, 122, 80, 0.18); text-decoration: none;
+  cursor: pointer; font-family: inherit;
   transition: background .18s ease, border-color .18s ease, transform .18s ease;
 }
 .w-cta-secondary:hover {
@@ -316,9 +317,14 @@ body {
 .brand-btn { border: none; background: transparent; cursor: pointer; font-family: inherit; }
 
 .features { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+/* feature + how cards share the welcome hero's translucent gradient (not pure white) */
+.feature, .how {
+  background: radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #FAF6EE 55%, #F4ECE0 100%);
+  border-color: rgba(177, 122, 80, 0.14);
+}
 .feature {
   text-align: left; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(177, 122, 80, 0.14); cursor: pointer;
 }
 .feature:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: #e6d9c2; }
 .f-icon {
@@ -527,10 +533,134 @@ tr:last-child td { border-bottom: none; }
 }
 .metric-chip b { color: var(--brown-deep); }
 
+/* bar label (used by vitals + timing bar rows) */
+.bar-label { width: 120px; flex-shrink: 0; color: var(--muted); text-transform: capitalize; }
+
+/* ── reactive face (shared by the compact quiz strip and the full vitals screen) ── */
+.face-svg { width: 100%; height: 100%; display: block; }
+.face-bg { fill: var(--brown-soft); stroke: var(--line); stroke-width: 1.5; transition: fill .45s ease; }
+.face-eye { fill: var(--ink); }
+.face-brow { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; fill: none; opacity: .7; transition: d .35s ease; }
+.face-mouth { stroke: var(--brown); stroke-width: 8; stroke-linecap: round; fill: none; transition: d .35s ease, stroke .45s ease; }
+/* emotion tones - warm palette only, driven by the container's data-emotion */
+[data-emotion="confident"] .face-mouth, [data-emotion="flow"] .face-mouth { stroke: var(--sage); }
+[data-emotion="confident"] .face-bg, [data-emotion="flow"] .face-bg { fill: #e8f0e0; }
+[data-emotion="overconfident"] .face-mouth, [data-emotion="confused"] .face-mouth { stroke: var(--amber); }
+[data-emotion="overconfident"] .face-bg, [data-emotion="confused"] .face-bg { fill: #f6ecd9; }
+[data-emotion="struggling"] .face-mouth { stroke: #cf7b52; }
+[data-emotion="struggling"] .face-bg { fill: #f8e6d8; }
+@keyframes facePulse { 0% { transform: scale(1); } 40% { transform: scale(1.05); } 100% { transform: scale(1); } }
+.face-pulse .face-svg { animation: facePulse .5s ease; }
+
+/* compact live vitals strip on the quiz screen */
+.vitals-strip { display: flex; gap: 18px; align-items: center; margin-top: 16px; }
+.vs-face { width: 72px; height: 72px; flex-shrink: 0; }
+.vs-body { flex: 1; min-width: 0; }
+.vs-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 9px; flex-wrap: wrap; }
+.vs-emotion { font-size: 16px; font-weight: 800; color: var(--ink); }
+.vs-note { font-size: 12px; }
+.vs-meta { display: flex; gap: 18px; margin-top: 9px; font-size: 12.5px; color: var(--muted); }
+.vs-meta b { color: var(--brown-deep); font-weight: 700; }
+
+/* full cognitive-vitals screen */
+.vitals-hero { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 16px; }
+.vt-bento {
+  background: var(--bg); border: 1px solid var(--line-soft); border-radius: 14px;
+  padding: 20px;
+}
+.vt-bento-face { display: grid; place-items: center; }
+.vt-face-wrap { width: 148px; height: 148px; flex-shrink: 0; }
+.vt-hero-body { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.vt-emotion-big { font-size: 26px; font-weight: 800; color: var(--ink); }
+.vt-hero-body .muted { text-align: justify; }
+.vt-ring-cap { max-width: 480px; font-size: 12px; }
+
+/* ring + live ability-curve, each in its own evenly-spaced sub-box */
+.vt-ring-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0 4px; width: 100%; }
+.vt-ring-col, .vt-curve-col {
+  background: var(--surface); border: 1px solid var(--line-soft); border-radius: 12px;
+  padding: 16px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px;
+}
+.vt-curve-col { gap: 6px; }
+.vt-curve { width: 190px; height: auto; }
+.vt-curve-grid line { stroke: var(--line); stroke-width: 1; }
+.vt-curve-grid .vt-curve-mid { stroke: var(--line-soft); stroke-dasharray: 3 3; }
+.vt-curve-line { fill: none; stroke: var(--brown); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.vt-curve-guide { stroke: var(--brown-deep); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .55; transition: transform .5s ease; }
+.vt-curve-dot { fill: var(--amber); stroke: var(--surface); stroke-width: 2; transition: cx .5s ease, cy .5s ease, fill .45s ease; }
+.vt-curve-col .muted, .vt-curve-cap { text-align: center; font-size: 11px; line-height: 1.35; }
+[data-emotion="confident"] .vt-curve-dot, [data-emotion="flow"] .vt-curve-dot { fill: var(--sage); }
+[data-emotion="struggling"] .vt-curve-dot { fill: #cf7b52; }
+.lab-est { font-size: 20px; word-break: break-word; }
+.vt-flag { margin-left: 6px; font-size: 10px; padding: 1px 7px; }
+.vt-empty { text-align: center; padding: 8px 0; }
+
+/* model lab */
+.lab-intro p { max-width: 760px; }
+.lab-auc-note { margin-top: 10px; }
+
+/* reflection text input (feature C) */
+.reflect-block { margin: 4px 0 16px; }
+.reflect-text {
+  width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); resize: vertical;
+}
+.reflect-text:focus { outline: none; border-color: var(--brown); }
+.signals-summary { font-size: 15px; color: var(--ink); margin: 6px 0 10px; }
+.signals-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.signals-flags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+/* architecture diagram */
+.arch-intro p { max-width: 820px; }
+.arch-legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.arch-key { font-size: 11.5px; font-weight: 700; padding: 3px 11px; border-radius: 999px;
+  border: 1px solid transparent; }
+.arch-k-client { background: #e8f0e0; color: #5d7d47; border-color: #8faa78; }
+.arch-k-api { background: var(--brown-soft); color: var(--brown-deep); border-color: var(--brown); }
+.arch-k-core { background: #f6ecd9; color: #a4763a; border-color: var(--amber); }
+.arch-k-store { background: var(--line-soft); color: var(--muted); border-color: var(--line); }
+.arch-k-ext { background: #f8e6d8; color: #b5563a; border-color: #cf7b52; }
+.arch-k-flow { color: var(--brown-deep); }
+.arch-k-read { color: var(--muted); }
+.arch-k-ret { color: #5d7d47; }
+
+.arch-scroll { overflow-x: auto; }
+.arch-svg { width: 100%; min-width: 720px; height: auto; display: block; }
+.arch-col { fill: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .05em;
+  text-anchor: middle; }
+
+/* nodes: colored boxes per layer */
+.arch-node rect { stroke-width: 1.5; }
+.arch-node .arch-title { fill: var(--ink); font-size: 13.5px; font-weight: 700; text-anchor: middle; }
+.arch-node .arch-sub { fill: var(--muted); font-size: 10.5px; text-anchor: middle; }
+.arch-client rect { fill: #e8f0e0; stroke: #8faa78; }
+.arch-api rect { fill: var(--brown-soft); stroke: var(--brown); }
+.arch-core rect { fill: #f6ecd9; stroke: var(--amber); }
+.arch-store rect { fill: var(--line-soft); stroke: var(--muted); }
+.arch-ext rect { fill: #f8e6d8; stroke: #cf7b52; }
+
+/* flowing dotted arrows */
+.arch-arrow { fill: none; stroke: var(--brown); stroke-width: 2; stroke-dasharray: 6 6;
+  marker-end: url(#arch-head); }
+.arch-head-fill { fill: var(--brown); }
+@keyframes archFlow { to { stroke-dashoffset: -24; } }
+.arch-flow { animation: archFlow 1s linear infinite; }
+.arch-arrow.arch-read { stroke: var(--muted); opacity: .6; marker-end: url(#arch-head); }
+.arch-arrow.arch-ext { stroke: #cf7b52; marker-end: url(#arch-head-ext); }
+.arch-head-ext-fill { fill: #cf7b52; }
+.arch-arrow.arch-ret { stroke: #8faa78; opacity: .8; marker-end: url(#arch-head-ret); }
+.arch-head-ret-fill { fill: #8faa78; }
+@media (prefers-reduced-motion: reduce) { .arch-flow { animation: none; } }
+
+.arch-foot { max-width: 820px; margin-top: 16px; }
+
 /* responsive */
 @media (max-width: 720px) {
   .sidebar { display: none; }
   .content, .page-head { padding-left: 18px; padding-right: 18px; }
+  .vitals-hero { grid-template-columns: 1fr; }
+  .vt-ring-row { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {

@@ -70,6 +70,27 @@ def memorization_index(df: pd.DataFrame) -> float:
     return float(fam - new)
 
 
+def per_concept_transfer(df: pd.DataFrame) -> dict[str, float]:
+    """Per-concept version of the memorization index: acc(original) - acc(reworded).
+
+    Same signal as `memorization_index` but grouped by `skill`, so the UI can show which
+    concepts are memorized-without-transfer rather than one session-wide scalar. A concept
+    only appears when it has at least one original AND one reworded probe with a defined
+    accuracy on each; concepts missing the signal are simply omitted. Empty dict when the
+    paraphrase columns aren't present.
+    """
+    if not {"skill", "correct", "is_reworded"}.issubset(df.columns):
+        return {}
+    out: dict[str, float] = {}
+    for skill, grp in df.groupby("skill"):
+        fam = grp[grp["is_reworded"] == 0]["correct"].mean()
+        new = grp[grp["is_reworded"] == 1]["correct"].mean()
+        if pd.isna(fam) or pd.isna(new):
+            continue
+        out[str(skill)] = float(fam - new)
+    return out
+
+
 def distractor_signature(df: pd.DataFrame) -> dict[str, dict]:
     """Per-skill distribution over chosen options on *incorrect* answers.
 

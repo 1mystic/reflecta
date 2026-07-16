@@ -52,6 +52,51 @@ def test_submit_unknown_session_404():
     assert r.status_code == 404
 
 
+def test_live_vitals_tick_returns_signals_and_never_leaks_answer():
+    """The /api/quiz/answer tick powers the live Cognitive Vitals face. It grades
+    answers-so-far to compute belief-state signals, but must return ONLY aggregates -
+    never the correct letter or per-item correctness - or it becomes a cheat oracle."""
+    start = client.post("/api/quiz/start", json={"goal": "data science interview",
+                                                 "n_questions": 6, "consent": True}).json()
+    answers = []
+    for q in start["questions"][:3]:
+        answers.append({"question_id": q["id"], "chosen_letter": list(q["options"])[0],
+                        "response_time": 4.0, "confidence": 0.7})
+        tick = client.post("/api/quiz/answer",
+                           json={"session_id": start["session_id"], "answers": answers})
+        assert tick.status_code == 200
+        v = tick.json()
+        # real belief-state signals are present
+        assert set(v) >= {"theta", "mastery", "certainty", "emotion", "streak", "n_answered"}
+        assert 0.0 <= v["certainty"] <= 1.0
+        # ANTI-CHEAT: no correct answer or per-item correctness anywhere in the payload
+        assert "correct_letter" not in tick.text
+        assert "correct" not in v
+
+    # peeking must NOT consume the pending session — submit still works afterward
+    sub = client.post("/api/quiz/submit",
+                      json={"session_id": start["session_id"], "answers": answers})
+    assert sub.status_code == 200
+
+
+def test_tick_unknown_session_404():
+    r = client.post("/api/quiz/answer", json={"session_id": "nope", "answers": []})
+    assert r.status_code == 404
+
+
+def test_reports_expose_training_metrics_and_params_when_available():
+    """The Model Lab reads /api/reports. When the MLflow store ships, runs carry both
+    metrics (AUCs) and params (hyperparams); when it doesn't, the payload degrades to empty
+    lists without crashing. Either way the shape must be stable."""
+    r = client.get("/api/reports")
+    assert r.status_code == 200
+    d = r.json()
+    assert "training_metrics" in d and isinstance(d["training_metrics"], list)
+    assert "registry" in d
+    for run in d["training_metrics"]:
+        assert "metrics" in run and "params" in run  # both keys always present
+
+
 def test_learner_history_accumulates_across_sessions():
     import json as _json
 

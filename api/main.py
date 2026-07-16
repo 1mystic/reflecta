@@ -35,11 +35,15 @@ from reflecta.eval.metrics import brier_score, expected_calibration_error
 from reflecta.features.behavior import (
     confidence_pairs,
     extract_behavior_signals,
+    memorization_index,
     per_skill_mastery,
+    timing_profile,
 )
 from reflecta.logging_config import get_logger
 from reflecta.models.intent_gap import ConceptRequirement, IntentGapMapper
+from reflecta.models.online_irt import session_vitals
 from reflecta.reflection.engine import generate_reflection
+from reflecta.reflection.vitals import face_emotion
 from reflecta.serving import get_mastery_estimator, model_registry_info
 from reflecta.sessions import FileSessionStore, PendingSessionStore
 
@@ -53,7 +57,9 @@ from api.schemas import (
     QuizStartResponse,
     QuizSubmitRequest,
     QuizSubmitResponse,
+    QuizTickRequest,
     ServedQuestionOut,
+    VitalsOut,
 )
 
 log = get_logger("reflecta.api")
@@ -94,8 +100,10 @@ async def observability(request: Request, call_next):
     rid = uuid.uuid4().hex[:8]
     start = time.time()
 
-    # rate limit only mutating quiz endpoints
-    if request.url.path.startswith("/api/quiz"):
+    # rate limit only mutating quiz endpoints. /api/quiz/answer is exempt: it's a read-only
+    # per-answer vitals tick (peeks the pending session, never writes), so it fires many
+    # times per quiz and would otherwise trip the limiter during normal play.
+    if request.url.path.startswith("/api/quiz") and request.url.path != "/api/quiz/answer":
         ip = request.client.host if request.client else "unknown"
         now = time.time()
         hits = _HITS[ip]
@@ -329,8 +337,77 @@ def quiz_submit(req: QuizSubmitRequest) -> QuizSubmitResponse:
     })
     history = _learner_history(learner_id) if learner_id else None
 
+    # feature C: extract signals from the learner's optional free-text reflection. Fully
+    # optional and None-safe - degrades to no signals without an ANTHROPIC_API_KEY.
+    text_signals = None
+    if req.reflection_text:
+        from reflecta.reflection.text_signals import extract_reflection_signals
+        sig = extract_reflection_signals(req.reflection_text)
+        if sig is not None:
+            text_signals = sig.model_dump()
+
     return QuizSubmitResponse(session_id=req.session_id, score=score,
-                              graded=graded, analysis=analysis, history=history)
+                              graded=graded, analysis=analysis, history=history,
+                              text_signals=text_signals)
+
+
+@app.post("/api/quiz/answer", response_model=VitalsOut)
+def quiz_answer(req: QuizTickRequest) -> VitalsOut:
+    """Live cognitive vitals for an in-progress quiz.
+
+    The client posts the answers it has recorded so far; the server grades them against the
+    still-pending answer key (peek, NOT pop - the learner keeps answering and submits
+    normally at the end) and returns only aggregate belief-state signals. It deliberately
+    returns NO correct_letter and NO per-item correctness, so this cannot be used to cheat:
+    you learn the model's opinion of you, never which option was right.
+    """
+    pending = _pending.peek(req.session_id)
+    if pending is None:
+        raise HTTPException(status_code=404, detail="unknown or expired session_id")
+    key = {qid: _KeyEntry(**d) for qid, d in pending["key"].items()}
+
+    rows = []
+    for ans in req.answers:
+        entry = key.get(ans.question_id)
+        if entry is None:
+            continue
+        rows.append(QuestionBank.grade(ans.model_dump(), entry))
+    if not rows:
+        # no gradeable answers yet (e.g. first tick before any real answer) - neutral state
+        return VitalsOut(theta=0.0, mastery=0.5, certainty=0.0,
+                         calibration={"ece": None, "direction": None}, timing={},
+                         streak=0, memorization=None, transfer={}, per_concept={},
+                         emotion="calm", n_answered=0)
+
+    df = pd.DataFrame(rows)
+    vitals = session_vitals(df)
+
+    conf, corr = confidence_pairs(df)
+    calibration = {"ece": _clean(expected_calibration_error(conf, corr)) if len(conf) else None,
+                   "direction": _clean(float(conf.mean() - corr.mean())) if len(conf) else None}
+    timing = timing_profile(df)
+    mem = _clean(memorization_index(df))
+
+    # current run of consecutive correct answers, counting back from the latest
+    streak = 0
+    for c in reversed(df["correct"].tolist()):
+        if c == 1:
+            streak += 1
+        else:
+            break
+
+    transfer = vitals["transfer"]
+    emotion = face_emotion(
+        mastery=vitals["mastery"], certainty=vitals["certainty"],
+        calib_direction=calibration["direction"], timing_profile=timing,
+        transfer_max=max(transfer.values()) if transfer else None,
+        streak=streak, n_answered=vitals["n_answered"])
+
+    return VitalsOut(
+        theta=vitals["theta"], mastery=vitals["mastery"], certainty=vitals["certainty"],
+        calibration=calibration, timing=timing, streak=streak, memorization=mem,
+        transfer=transfer, per_concept=vitals["per_concept"], emotion=emotion,
+        n_answered=vitals["n_answered"])
 
 
 @app.delete("/api/session/{session_id}")
