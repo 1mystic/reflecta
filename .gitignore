@@ -16,11 +16,17 @@ venv/
 # --- experiment tracking / models ---
 wandb/
 mlruns/
-mlflow.db
 mlartifacts/
 *.ckpt
 *.pt
-models_store/
+# The offline knowledge-tracing artifacts (models_store/) and the MLflow store (mlflow.db)
+# are small (~1.8MB total) and committed ON PURPOSE: the Model Lab reads them live in
+# production so the deployed app shows real trained-model data instead of "No Models". They
+# are re-included below despite the broad *.pt / mlflow.db ignores. (Retraining locally will
+# show these as modified - that is expected; commit or discard as you see fit.)
+!mlflow.db
+!models_store/
+!models_store/*
 
 # --- captured user sessions (real response data) ---
 data/sessions/

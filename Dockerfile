@@ -15,10 +15,12 @@ RUN pip install --upgrade pip && pip install ".[api,data]"
 COPY api ./api
 COPY frontend ./frontend
 COPY data/question_bank.json ./data/question_bank.json
-# models_store/ (offline-trained IRT/BKT/SAKT artifacts) is gitignored and not wired
-# into live serving yet (see GUIDEBOOK §7.5) — nothing here reads it, so it's not
-# copied into the image. `COPY` errors on a missing source, and this path never
-# exists in a fresh clone anyway.
+# Offline-trained artifacts + MLflow store: not used for live mastery serving (that's the
+# per-session online IRT), but the Model Lab page reads them to show real trained-model
+# metrics in production. They're committed to the repo (see .gitignore) so they exist in a
+# fresh clone. If ever absent, monitoring/serving degrade gracefully to "no models".
+COPY models_store ./models_store
+COPY mlflow.db ./mlflow.db
 
 # --- runtime hardening ---
 RUN adduser --disabled-password --gecos "" appuser \
