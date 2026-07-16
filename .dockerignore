@@ -6,7 +6,6 @@ __pycache__/
 .github/
 mlruns/
 mlartifacts/
-mlflow.db
 data/raw/
 data/processed/
 data/legacy_kaggle/
