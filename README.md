@@ -2,6 +2,7 @@
 
 <img src="assets/readme/hero.svg" alt="Reflecta — a quiz that tells you more than a score. The 75% ring shown is the product's own goal-readiness gauge." width="100%" />
 
+
 <br/>
 
 [![CI](https://github.com/1mystic/reflecta/actions/workflows/ci.yml/badge.svg)](https://github.com/1mystic/reflecta/actions/workflows/ci.yml)
@@ -11,7 +12,7 @@
 [![PyTorch](https://img.shields.io/badge/model-SAKT%20(PyTorch)-EE4C2C.svg)](src/reflecta/models/sakt.py)
 [![MLflow](https://img.shields.io/badge/tracking-MLflow-0194E2.svg)](src/reflecta/tracking/experiment.py)
 
-**[Live demo ](https://reflecta-j1wz.onrender.com/)**
+# Reflecta : [Live demo ](https://reflecta-j1wz.onrender.com/) 
 
 </div>
 
