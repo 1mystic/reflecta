@@ -2,19 +2,23 @@
 
 <img src="assets/readme/hero.svg" alt="Reflecta — a quiz that tells you more than a score. The 75% ring shown is the product's own goal-readiness gauge." width="100%" />
 
-
 <br/>
 
-[![CI](https://github.com/1mystic/reflecta/actions/workflows/ci.yml/badge.svg)](https://github.com/1mystic/reflecta/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](pyproject.toml)
-[![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688.svg)](api/main.py)
-[![PyTorch](https://img.shields.io/badge/model-SAKT%20(PyTorch)-EE4C2C.svg)](src/reflecta/models/sakt.py)
-[![MLflow](https://img.shields.io/badge/tracking-MLflow-0194E2.svg)](src/reflecta/tracking/experiment.py)
+<p align="center">
 
-# Reflecta : [Live demo ](https://reflecta-j1wz.onrender.com/) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-F5C542?style=for-the-badge&logoColor=111111)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-F5C542?style=for-the-badge&logo=python&logoColor=111111)](pyproject.toml)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-F5C542?style=for-the-badge&logo=fastapi&logoColor=111111)](api/main.py)
+[![PyTorch](https://img.shields.io/badge/Model-SAKT%20%7C%20PyTorch-F5C542?style=for-the-badge&logo=pytorch&logoColor=111111)](src/reflecta/models/sakt.py)
+[![MLflow](https://img.shields.io/badge/Tracking-MLflow-F5C542?style=for-the-badge&logo=mlflow&logoColor=111111)](src/reflecta/tracking/experiment.py)
+
+</p>
+
+# Reflecta : [Live demo](https://reflecta-j1wz.onrender.com/)
 
 </div>
+
+![Reflecta Preview](https://github.com/1mystic/reflecta/blob/026acfc11aaafc6786436ff7b576203419f9f6ba/reflecta-snips/Screenshot%202026-07-15%20120616.png)
 
 ---
 
